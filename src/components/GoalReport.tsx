@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
   type ReactElement,
+  type ReactNode,
 } from "react";
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "cn";
@@ -36,6 +37,7 @@ import {
 } from "@/goalReport";
 import { goalsOn, isMet, type DoneTask, type GoalProgress, type GoalsToday } from "@/goals";
 import { boundAction } from "@/keymap";
+import { practice } from "@/learning/progress";
 import { preventFocusSteal } from "@/navigation";
 import { readPreference, writePreference } from "@/platform/preferences";
 import type { SharedSettings } from "@/platform/sharedSettings";
@@ -219,11 +221,13 @@ function Report({
     const id = boundAction(event);
     if (id === "goals.report") {
       event.preventDefault();
+      practice("goals.report");
       onClose();
       return;
     }
     if (id === "goals.report-range") {
       event.preventDefault();
+      practice("goals.report-range");
       onRange(range === "month" ? "year" : "month");
       return;
     }
@@ -490,14 +494,17 @@ function MonthGrid(props: GridProps & { month: string; weekly: GoalProgress[] })
           </span>
         ))}
         {weekly.length > 0 && (
-          <span role="columnheader" className="flex items-center justify-center gap-1">
+          <Hinted
+            hint={`${weekly.length === 1 ? "Weekly goal" : "Weekly goals"}, tallied week by week`}
+            render={<span role="columnheader" className="flex items-center justify-center gap-1" />}
+          >
             {weekly.map((goal) => (
               <GoalDot key={goal.slug ?? ""} goal={goal} neutral="bg-foreground" />
             ))}
             {weekly.length === 1 && (
               <span className="truncate max-sm:hidden">{weekly[0].name}</span>
             )}
-          </span>
+          </Hinted>
         )}
       </div>
       {weeks.map((week, row) => {
@@ -551,11 +558,7 @@ function MonthGrid(props: GridProps & { month: string; weekly: GoalProgress[] })
               );
             })}
             {weekly.length > 0 && (
-              <div
-                data-row={row}
-                data-col={7.4}
-                className="flex flex-col items-center justify-center gap-0.5 border-l text-xs text-muted-foreground tabular-nums"
-              >
+              <WeekCell row={row} week={week[0]} goals={weekGoals} today={span.today}>
                 {weekGoals?.goals
                   .filter((goal) => goal.week)
                   .map((goal) => {
@@ -577,12 +580,86 @@ function MonthGrid(props: GridProps & { month: string; weekly: GoalProgress[] })
                       </span>
                     );
                   })}
-              </div>
+              </WeekCell>
             )}
           </div>
         );
       })}
     </div>
+  );
+}
+
+/** A row's weekly column, with its week's numbers on hover once the week has begun. */
+function WeekCell({
+  row,
+  week,
+  goals,
+  today,
+  children,
+}: {
+  row: number;
+  week: string;
+  goals: GoalsToday | null;
+  today: string;
+  children: ReactNode;
+}): ReactElement {
+  const cell = (
+    <div
+      data-row={row}
+      data-col={7.4}
+      className="flex flex-col items-center justify-center gap-0.5 border-l text-xs text-muted-foreground tabular-nums"
+    />
+  );
+  // A week still to come has nothing in it to explain.
+  if (!goals) return cell;
+  return (
+    <Hinted hint={<WeekTip week={week} goals={goals} today={today} />} render={cell}>
+      {children}
+    </Hinted>
+  );
+}
+
+/** A week's weekly goals: what got done toward each, and that they never hold a day back. */
+function WeekTip({
+  week,
+  goals,
+  today,
+}: {
+  week: string;
+  goals: GoalsToday;
+  today: string;
+}): ReactElement {
+  const weekly = goals.goals.filter((goal) => goal.week);
+  const left = weekly.reduce(
+    (sum, goal) => sum + Math.max(0, goal.week!.count - goal.week!.done),
+    0,
+  );
+  return (
+    <Columns
+      className="flex min-w-48 flex-col gap-1"
+      pairs={weekly.map((goal) => [goal.week!.done, goal.week!.count])}
+    >
+      <Line>
+        <span className="font-medium">
+          {addDays(week, 6) >= today ? "This week" : `Week of ${formatDueDate(week, today)}`}
+        </span>
+        <span className={cn("ml-3", left === 0 ? "text-success-inverse" : "opacity-70")}>
+          {left === 0 ? "Met" : `${left} to go`}
+        </span>
+      </Line>
+      {weekly.map((goal) => (
+        <Line key={goal.slug ?? ""}>
+          <span className="flex items-center gap-1.5">
+            <GoalDot goal={goal} />
+            {goal.name}
+          </span>
+          <Numbers done={goal.week!.done} target={goal.week!.count} />
+        </Line>
+      ))}
+      <span className="max-w-56 border-t border-background/20 pt-1.5 opacity-80">
+        Counts the whole week and never holds a day back
+      </span>
+    </Columns>
   );
 }
 

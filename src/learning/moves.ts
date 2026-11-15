@@ -232,6 +232,14 @@ const MOVE_DEFINITIONS = [
     id: "settings.goals",
     keyboard: { label: "Set a goal in Settings › Goals", keys: ["settings.open"] },
   },
+  {
+    id: "goals.report",
+    keyboard: { label: "How every day went against your goals", keys: ["goals.report"] },
+  },
+  {
+    id: "goals.report-range",
+    keyboard: { label: "The goal report's whole year", keys: ["goals.report-range"] },
+  },
 ] as const satisfies readonly MoveDefinition[];
 
 export type MoveId = (typeof MOVE_DEFINITIONS)[number]["id"];

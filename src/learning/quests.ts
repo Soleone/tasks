@@ -533,9 +533,9 @@ const QUEST_DEFINITIONS = [
     ],
   },
   {
-    id: "day-by-day",
-    title: "Day by day",
-    summary: "A goal for each day, and logging what you already did",
+    id: "goals",
+    title: "Goals",
+    summary: "A goal for each day, and a look back at how every day went",
     keyboard: [
       {
         move: "settings.goals",
@@ -544,9 +544,30 @@ const QUEST_DEFINITIONS = [
         success: "Goal set",
       },
       {
+        move: "goals.report",
+        prompt: "Press `Esc` to close settings, then `goals.report` to see how every day went",
+        success: "Goal report",
+      },
+      {
+        move: "goals.report-range",
+        prompt: "Press `goals.report-range` to see the whole year",
+        success: "This year",
+      },
+      {
+        move: "goals.report",
+        prompt: "Press `goals.report` again to go back to your list",
+        success: "Back where you were",
+      },
+    ],
+  },
+  {
+    id: "after-the-fact",
+    title: "After the fact",
+    summary: "Logging what you already did, so it counts toward today's goal",
+    keyboard: [
+      {
         move: "capture.log",
-        prompt:
-          "Press `Esc` to close settings, then `capture.log` to log something you already did",
+        prompt: "Press `capture.log` to log something you already did",
         success: "Logging",
       },
       {

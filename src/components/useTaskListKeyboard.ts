@@ -298,8 +298,10 @@ function runBinding(id: BindingId, event: KeyboardEvent, actions: HomeShortcutAc
     case "agents.lens":
       return actions.toggleLens("agents");
     case "goals.report":
+      practice("goals.report");
       return actions.openGoalReport("month");
     case "goals.report-range":
+      practice("goals.report-range");
       return actions.openGoalReport("year");
   }
 }
