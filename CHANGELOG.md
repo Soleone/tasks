@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/Soleone/tasks/compare/v0.6.2...v0.7.0) (2026-11-15)
+
+### Features
+
+* goal report, a calendar of how every day went against your goals ([46b5bfb](https://github.com/Soleone/tasks/commit/46b5bfb2f56f65de3a7109e8b9e2879163d36bda))
+* goals get their own quest ending on the goal report, and the weekly column explains itself on hover ([d15a137](https://github.com/Soleone/tasks/commit/d15a137fb0e014d71949f5ff9dde1dee46f9ddc0))
+
 ## [0.6.2](https://github.com/Soleone/tasks/compare/v0.6.1...v0.6.2) (2026-11-13)
 
 ### Features
