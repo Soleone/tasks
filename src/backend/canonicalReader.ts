@@ -257,16 +257,15 @@ function observeRoot(
     throw new CommandError("STALE_SCOPE", "canonical tree changed during observation");
   }
   rememberScan(taskDirectory, scan);
-  tasks.sort((left, right) => {
-    const leftParent = left.parentId ?? "";
-    const rightParent = right.parentId ?? "";
-    return leftParent === rightParent
-      ? compareTasks(left, right)
-      : leftParent < rightParent
-        ? -1
-        : 1;
-  });
+  tasks.sort(compareSnapshotTasks);
   return { rootPath, rootIdentity, tasks, files, conflictFiles };
+}
+
+/** Snapshot order: grouped by parent, then sibling order within each parent. */
+export function compareSnapshotTasks(left: CanonicalTask, right: CanonicalTask): number {
+  const leftParent = left.parentId ?? "";
+  const rightParent = right.parentId ?? "";
+  return leftParent === rightParent ? compareTasks(left, right) : leftParent < rightParent ? -1 : 1;
 }
 
 /** Only purge recovery calls this after proving each absent preimage's bound quarantine. */
