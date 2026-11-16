@@ -77,10 +77,10 @@ export function parseOrder(command: string, args: Record<string, unknown>): Orde
 export function planOrder(input: OrderInput, tasks: CanonicalTask[]): OrderPlan {
   const selectedIds = input.tasks.map((task) => task.id);
   const selectedSet = new Set(selectedIds);
-  const first = tasks.find((task) => task.id === selectedIds[0]);
-  if (input.kind === "reorder" && !first)
+  const firstSelected = tasks.find((task) => task.id === selectedIds[0]);
+  if (input.kind === "reorder" && !firstSelected)
     throw new CommandError("TASK_NOT_FOUND", "selected ordering task was not found");
-  const parentId = input.kind === "normalize" ? input.parentId : first!.parentId;
+  const parentId = input.kind === "normalize" ? input.parentId : firstSelected!.parentId;
   const before = tasks.filter((task) => task.parentId === parentId).sort(compareTasks);
   const selected = before.filter((task) => selectedSet.has(task.id));
   if (selected.length !== selectedIds.length)
@@ -95,14 +95,8 @@ export function planOrder(input: OrderInput, tasks: CanonicalTask[]): OrderPlan 
       );
     const keys = allocateKeys(null, null, before.length);
     const after = before.map((task, index) => ({ ...task, orderKey: keys[index] }));
-    return {
-      parentId,
-      before,
-      after,
-      selectedIds,
-      writes: after.filter((task, index) => task.orderKey !== before[index].orderKey),
-      changed: after.some((task, index) => task.orderKey !== before[index].orderKey),
-    };
+    const writes = after.filter((task, index) => task.orderKey !== before[index].orderKey);
+    return { parentId, before, after, selectedIds, writes, changed: writes.length > 0 };
   }
   const remaining = before.filter((task) => !selectedSet.has(task.id));
   let insertAt: number;
