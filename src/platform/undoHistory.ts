@@ -144,12 +144,11 @@ export class UndoHistory {
   }
 
   private stored(): StoredHistory | null {
-    if (this.storageFailed) return null;
+    if (!this.storage || this.storageFailed) return null;
     let value: unknown;
     try {
-      const raw = this.storage?.getItem(STORAGE_KEY);
-      if (raw === null || raw === undefined)
-        return this.storage ? { version: 1, workspaces: [] } : null;
+      const raw = this.storage.getItem(STORAGE_KEY);
+      if (raw === null) return { version: 1, workspaces: [] };
       value = JSON.parse(raw);
     } catch {
       return null;
