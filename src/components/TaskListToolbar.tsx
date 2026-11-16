@@ -41,7 +41,7 @@ import {
 } from "./taskFilters";
 import { CategoryFact } from "./TaskRow";
 import { useFilterTuck } from "./useFilterTuck";
-import { lensFilter, lensPhrase, widerDoneWindow, type GoalLens, type ListLens } from "./listLens";
+import { lensFilter, lensPhrase, nextDoneWindow, type GoalLens, type ListLens } from "./listLens";
 import { DoneLensGoals, goalLens, WeekDots } from "./GoalRings";
 import { Hinted } from "./Hinted";
 import { BindingKbd } from "@/components/variants/kbd";
@@ -800,7 +800,7 @@ export function TaskListToolbar({
                   filter="status"
                   label={
                     lens?.kind === "done"
-                      ? `Show tasks ${lensPhrase({ kind: "done", window: widerDoneWindow(lens.window) })}`
+                      ? `Show tasks ${lensPhrase({ kind: "done", window: nextDoneWindow(lens.window) })}`
                       : "Reset status filter to Active"
                   }
                   onClear={
