@@ -30,7 +30,7 @@ import { readPending } from "./pending.js";
 import { selectOtherRootsDirectory, withRootWriterLock } from "./localDomain.js";
 import { executeQuery, projectTasks } from "./queries.js";
 import { assertArgs, decodeEnvelope, isRecord, parseRequest, QUERY_COMMANDS } from "./protocol.js";
-import type { Response } from "./protocol.js";
+import type { Request, Response } from "./protocol.js";
 
 const writeCommands = [
   "task.update",
@@ -65,31 +65,13 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
     if (writeCommands.includes(request.command)) {
-      const outcome =
-        request.command === "task.create"
-          ? executeCreate(request, rootPath, cachePath)
-          : request.command === "attachment.write"
-            ? executeAttachmentWrite(request, rootPath, cachePath)
-            : REMOVAL_COMMANDS.includes(request.command)
-              ? executeRemoval(request, rootPath, cachePath)
-              : request.command === "workspace.doctor.plan"
-                ? executeDoctorPlan(request, rootPath, cachePath)
-                : request.command === "workspace.doctor.apply"
-                  ? executeDoctorApply(request, rootPath, cachePath)
-                  : UNDO_COMMANDS.includes(request.command)
-                    ? executeUndo(request, rootPath, cachePath)
-                    : ORDER_COMMANDS.includes(request.command)
-                      ? executeOrder(request, rootPath, cachePath)
-                      : isTaskEditRequest(request)
-                        ? executeUpdate(request, rootPath, cachePath)
-                        : request.command === "workspace.recovery.resume"
-                          ? resumeOperation(request, rootPath, cachePath)
-                          : executeLifecycle(request, rootPath, cachePath);
+      const outcome = executeWrite(request, rootPath, cachePath);
       return { version: 2, requestId: request.requestId, ok: true, ...outcome };
     }
     restoreSavedScan(cachePath, readPhysicalRoot(rootPath));
+    const isInfo = request.command === "workspace.info";
     const inspection = inspectCanonicalRoot(rootPath);
-    if (request.command !== "workspace.info" && inspection.state === "unsupported") {
+    if (!isInfo && inspection.state === "unsupported") {
       throw new CommandError(
         "UNSUPPORTED_SCHEMA",
         inspection.schemaVersion === 2
@@ -106,21 +88,21 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
     if (!commands.includes(request.command)) {
       throw new CommandError("UNSUPPORTED_COMMAND", "command is unavailable in this build");
     }
-    if (request.command === "workspace.info") assertArgs(request.args, []);
+    if (isInfo) assertArgs(request.args, []);
     let pending;
     let pendingIssue: { code: string; message: string } | undefined;
     try {
       pending = readPending(inspection);
     } catch (error) {
-      if (request.command !== "workspace.info") throw error;
+      if (!isInfo) throw error;
       pendingIssue = {
         code: "RECOVERY_CONFLICT",
         message: "local intent evidence requires manual inspection; no automatic repair",
       };
     }
-    if (request.command !== "workspace.info" && pending)
+    if (!isInfo && pending)
       throw new CommandError("RECOVERY_PENDING", "root has an unfinished intent");
-    if (request.command !== "workspace.info" && !inspection.snapshot) {
+    if (!isInfo && !inspection.snapshot) {
       throw new CommandError(
         inspection.issues[0]?.code ?? "INVALID_CANONICAL",
         "root is not a complete schema-2 collection",
@@ -131,34 +113,33 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
       inspection,
       pending || pendingIssue ? undefined : inspection.snapshot,
     );
-    const result =
-      request.command === "workspace.info"
-        ? {
-            state: pending || pendingIssue ? "recovery_pending" : inspection.state,
-            schemaVersion: inspection.schemaVersion,
-            commands,
-            issues: [...inspection.issues, ...(pendingIssue ? [pendingIssue] : [])],
-            pendingOperationId: pending?.operationId ?? null,
-            workspaceRevision: authority.workspaceRevision,
-          }
-        : request.command === "workspace.export"
-          ? withRootWriterLock(inspection, () => exportWorkspace(inspection.rootPath, request.args))
-          : request.command === "attachment.read"
-            ? readAttachment(inspection.rootPath, request.args)
-            : request.command === "activity.list"
-              ? request.args.from === "cli"
-                ? listCliActivity(cachePath, request.args)
-                : withCacheTransaction(cachePath, inspection, (database) => {
-                    synchronizeAuthority(database, inspection);
-                    return listActivity(database, request.args, authority.writeContext);
-                  })
-              : executeQuery(
-                  request.command,
-                  request.args,
-                  projectTasks(inspection.snapshot!.tasks, authority),
-                  authority.workspaceRevision,
-                );
-    if (request.command !== "workspace.info" && readPending(inspection))
+    const result = isInfo
+      ? {
+          state: pending || pendingIssue ? "recovery_pending" : inspection.state,
+          schemaVersion: inspection.schemaVersion,
+          commands,
+          issues: [...inspection.issues, ...(pendingIssue ? [pendingIssue] : [])],
+          pendingOperationId: pending?.operationId ?? null,
+          workspaceRevision: authority.workspaceRevision,
+        }
+      : request.command === "workspace.export"
+        ? withRootWriterLock(inspection, () => exportWorkspace(inspection.rootPath, request.args))
+        : request.command === "attachment.read"
+          ? readAttachment(inspection.rootPath, request.args)
+          : request.command === "activity.list"
+            ? request.args.from === "cli"
+              ? listCliActivity(cachePath, request.args)
+              : withCacheTransaction(cachePath, inspection, (database) => {
+                  synchronizeAuthority(database, inspection);
+                  return listActivity(database, request.args, authority.writeContext);
+                })
+            : executeQuery(
+                request.command,
+                request.args,
+                projectTasks(inspection.snapshot!.tasks, authority),
+                authority.workspaceRevision,
+              );
+    if (!isInfo && readPending(inspection))
       throw new CommandError("RECOVERY_PENDING", "root changed while querying");
     return {
       version: 2,
@@ -170,6 +151,26 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
   } catch (error) {
     return failureResponse(requestId, error);
   }
+}
+
+// Order matters: removal, undo and order commands are claimed before the
+// task-edit check, and lifecycle commands are whatever remains.
+function executeWrite(request: Request, rootPath: string, cachePath: string) {
+  if (request.command === "task.create") return executeCreate(request, rootPath, cachePath);
+  if (request.command === "attachment.write")
+    return executeAttachmentWrite(request, rootPath, cachePath);
+  if (REMOVAL_COMMANDS.includes(request.command))
+    return executeRemoval(request, rootPath, cachePath);
+  if (request.command === "workspace.doctor.plan")
+    return executeDoctorPlan(request, rootPath, cachePath);
+  if (request.command === "workspace.doctor.apply")
+    return executeDoctorApply(request, rootPath, cachePath);
+  if (UNDO_COMMANDS.includes(request.command)) return executeUndo(request, rootPath, cachePath);
+  if (ORDER_COMMANDS.includes(request.command)) return executeOrder(request, rootPath, cachePath);
+  if (isTaskEditRequest(request)) return executeUpdate(request, rootPath, cachePath);
+  if (request.command === "workspace.recovery.resume")
+    return resumeOperation(request, rootPath, cachePath);
+  return executeLifecycle(request, rootPath, cachePath);
 }
 
 export function failureResponse(requestId: string | null, error: unknown): Response {
