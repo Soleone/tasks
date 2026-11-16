@@ -15,10 +15,10 @@ pub fn register(version: String) {
         return;
     };
     // Neither a missing menu entry nor a missing CLI copy is worth failing the start over.
-    let _ = write(Path::new(&appimage), &data);
+    let _ = write_menu_entry(Path::new(&appimage), &data);
     // Off the start's path: the CLI is over a hundred megabytes.
     std::thread::spawn(move || {
-        let _ = install_cli(&data, &version);
+        let _ = copy_cli(&data, &version).and_then(|cli| link_cli(&cli));
     });
 }
 
@@ -32,23 +32,28 @@ fn cli_copy(data: &Path) -> PathBuf {
     data.join("tasks").join("tasks-cli")
 }
 
-/// Copies this version's CLI out once and links it from `~/.local/bin`, which most distributions
-/// have on PATH. A file someone else put at the link is left alone.
-fn install_cli(data: &Path, version: &str) -> std::io::Result<()> {
+/// Copies this version's CLI out of the AppImage, once per version, and returns where it is.
+fn copy_cli(data: &Path, version: &str) -> std::io::Result<PathBuf> {
     let target = cli_copy(data);
     let stamp = target.with_extension("version");
-    let current = target.exists() && std::fs::read_to_string(&stamp).is_ok_and(|v| v == version);
-    if !current {
-        let source = std::env::current_exe()?.with_file_name("tasks-cli");
-        if let Some(folder) = target.parent() {
-            std::fs::create_dir_all(folder)?;
-        }
-        // Renamed into place, so an agent running the old copy keeps a whole file.
-        let stage = target.with_extension("preparing");
-        std::fs::copy(source, &stage)?;
-        std::fs::rename(&stage, &target)?;
-        std::fs::write(&stamp, version)?;
+    if target.exists() && std::fs::read_to_string(&stamp).is_ok_and(|v| v == version) {
+        return Ok(target);
     }
+    let source = std::env::current_exe()?.with_file_name("tasks-cli");
+    if let Some(folder) = target.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    // Renamed into place, so an agent running the old copy keeps a whole file.
+    let stage = target.with_extension("preparing");
+    std::fs::copy(source, &stage)?;
+    std::fs::rename(&stage, &target)?;
+    std::fs::write(&stamp, version)?;
+    Ok(target)
+}
+
+/// Links the CLI from `~/.local/bin`, which most distributions have on PATH. A file someone else
+/// put at the link is left alone.
+fn link_cli(cli: &Path) -> std::io::Result<()> {
     let Some(home) = std::env::var_os("HOME") else {
         return Ok(());
     };
@@ -59,7 +64,7 @@ fn install_cli(data: &Path, version: &str) -> std::io::Result<()> {
     if let Some(folder) = link.parent() {
         std::fs::create_dir_all(folder)?;
     }
-    std::os::unix::fs::symlink(&target, &link)
+    std::os::unix::fs::symlink(cli, &link)
 }
 
 fn data_home() -> Option<PathBuf> {
@@ -69,7 +74,7 @@ fn data_home() -> Option<PathBuf> {
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))
 }
 
-fn write(appimage: &Path, data: &Path) -> std::io::Result<()> {
+fn write_menu_entry(appimage: &Path, data: &Path) -> std::io::Result<()> {
     let Some(exec) = appimage.to_str() else {
         return Ok(());
     };
