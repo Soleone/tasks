@@ -145,6 +145,7 @@ export class WorkspaceReader {
     validateSelection(selection);
     if (dev && native)
       throw new Error("Select one backend connection; native sessions cannot fall back to HTTP.");
+    if (!dev && !native) throw new Error("Native launch is unavailable here.");
     if (
       dev &&
       (selection.rootPath !== dev.selection.rootPath ||
@@ -157,15 +158,11 @@ export class WorkspaceReader {
       databasePath: selection.databasePath,
     });
     this.dev = dev ? { url: dev.url, selection: Object.freeze({ ...dev.selection }) } : undefined;
-    if (!dev && !native) {
-      throw new Error("Native launch is unavailable here.");
-    }
-    this.session =
-      dev || !native
-        ? null
-        : native instanceof JsonLineSession
-          ? native
-          : new JsonLineSession(native, parseResponse);
+    this.session = !native
+      ? null
+      : native instanceof JsonLineSession
+        ? native
+        : new JsonLineSession(native, parseResponse);
   }
 
   async query(
