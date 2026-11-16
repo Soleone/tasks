@@ -64,7 +64,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2.11.4",
     "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^14.6.8",
+    "@testing-library/user-event": "^14.6.10",
     "@types/node": "^22.20.1",
     "@types/path-browserify": "^1.0.3",
     "@types/react": "^19.2.18",
