@@ -17,7 +17,7 @@ const loadCategories = () => listCategories().then((result) => result.categories
 const CHOICES = [...SWATCHES, null] as const;
 /** How long typed letters keep adding up to one name, as in a native list. */
 const TYPE_AHEAD_MS = 700;
-const NEXT_KEYS: Record<string, number> = {
+const COLOR_STEPS: Record<string, number> = {
   ArrowRight: 1,
   ArrowLeft: -1,
   Home: -99,
@@ -63,7 +63,7 @@ export function CategoryColorsSection({ open }: { open: boolean }): ReactElement
       focusRow(next);
       return;
     }
-    const step = NEXT_KEYS[event.key];
+    const step = COLOR_STEPS[event.key];
     if (step === undefined) return;
     event.preventDefault();
     const index = CHOICES.indexOf(colors[slug] ?? null);
@@ -165,7 +165,7 @@ function SwatchRadio({
       role="radio"
       aria-checked={checked}
       aria-label={swatch ?? "No color"}
-      tabIndex={checked ? (tabbable ? 0 : -1) : -1}
+      tabIndex={tabbable ? 0 : -1}
       data-swatch={swatch ?? "none"}
       onClick={onPick}
       className={cn(
