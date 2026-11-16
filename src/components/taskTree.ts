@@ -13,7 +13,7 @@ type TaskGroup = {
   rootIndex: number;
 };
 
-function rootFor(task: TaskView, byId: Map<string, TaskView>): string {
+function rootIdFor(task: TaskView, byId: Map<string, TaskView>): string {
   let current = task;
   const seen = new Set<string>();
   while (current.parentId) {
@@ -31,9 +31,9 @@ export function contextTaskIds(
   knownTasks: readonly TaskView[],
 ): Set<string> {
   const byId = new Map(knownTasks.map((task) => [task.id, task]));
-  const rootIds = new Set(tasks.map((task) => rootFor(task, byId)));
+  const rootIds = new Set(tasks.map((task) => rootIdFor(task, byId)));
   return new Set(
-    knownTasks.filter((task) => rootIds.has(rootFor(task, byId))).map((task) => task.id),
+    knownTasks.filter((task) => rootIds.has(rootIdFor(task, byId))).map((task) => task.id),
   );
 }
 
@@ -43,14 +43,16 @@ export function rootIdsAboveTasks(
   knownTasks: readonly TaskView[],
 ): Set<string> {
   const byId = new Map(knownTasks.map((task) => [task.id, task]));
-  return new Set(tasks.filter((task) => task.parentId !== null).map((task) => rootFor(task, byId)));
+  return new Set(
+    tasks.filter((task) => task.parentId !== null).map((task) => rootIdFor(task, byId)),
+  );
 }
 
 export function taskGroupOrder(tasks: TaskView[], contextTasks: TaskView[]): Map<string, number> {
   const byId = new Map([...contextTasks, ...tasks].map((entry) => [entry.id, entry]));
   const order = new Map<string, number>();
   for (const task of tasks) {
-    const rootId = rootFor(task, byId);
+    const rootId = rootIdFor(task, byId);
     if (!order.has(rootId)) order.set(rootId, order.size);
   }
   return order;
@@ -63,15 +65,15 @@ export function taskGroupOrder(tasks: TaskView[], contextTasks: TaskView[]): Map
 export function visibleTaskRows(
   tasks: TaskView[],
   expandedIds: ReadonlySet<string>,
-  contextTasks: TaskView[] = [],
-  rootOrder: ReadonlyMap<string, number> = new Map(),
+  contextTasks: TaskView[],
+  rootOrder: ReadonlyMap<string, number>,
 ): VisibleTaskRow[] {
   const matchingIds = new Set(tasks.map((task) => task.id));
   const byId = new Map([...contextTasks, ...tasks].map((task) => [task.id, task]));
   const groups = new Map<string, TaskGroup>();
 
   tasks.forEach((task, index) => {
-    const rootId = rootFor(task, byId);
+    const rootId = rootIdFor(task, byId);
     const root = byId.get(rootId) ?? task;
     const group = groups.get(rootId) ?? {
       root,
@@ -80,13 +82,12 @@ export function visibleTaskRows(
     };
     if (task.id === rootId) group.root = task;
     else group.descendants.push(task);
-    if (!rootOrder.has(rootId)) group.rootIndex = Math.min(group.rootIndex, index);
     groups.set(rootId, group);
   });
 
   for (const task of contextTasks) {
     if (matchingIds.has(task.id)) continue;
-    const rootId = rootFor(task, byId);
+    const rootId = rootIdFor(task, byId);
     if (task.id !== rootId) groups.get(rootId)?.descendants.push(task);
   }
 
