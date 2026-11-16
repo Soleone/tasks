@@ -568,6 +568,31 @@ export function HelpPalette({
   const questEntry = useQuestEntry();
   useKeymap();
 
+  const actions: Record<NonNullable<HelpEntry["action"]>, (() => void) | undefined> = {
+    "open-settings": onOpenSettings,
+    "open-themes": onOpenThemes,
+    "toggle-done-lens": () => onToggleLens("done"),
+    "toggle-due-lens": () => onToggleLens("due"),
+    "toggle-agents-lens": () => onToggleLens("agents"),
+    "widen-done-lens": onWidenDoneLens,
+    "open-goal-report": onOpenGoalReport,
+    "new-task": onCreate,
+    "log-done-task": onLogDone,
+    "new-child-task": activeTask && onCreateChild ? () => onCreateChild(activeTask) : undefined,
+    "filter-category": onOpenCategoryPicker,
+    "filter-status": onOpenStatusMenu,
+    "filter-priority": onOpenPriorityMenu,
+    "filter-tags": onOpenTagPicker,
+    "filter-search": onOpenSearch,
+    "copy-task": activeTask && onCopyTask ? () => onCopyTask(activeTask) : undefined,
+    "copy-image": activeTask && onCopyImage ? () => onCopyImage(activeTask) : undefined,
+    "add-blocker": activeTask && onAddBlocker ? () => onAddBlocker(activeTask) : undefined,
+    "pause-task": activeTask && onPauseTask ? () => onPauseTask(activeTask) : undefined,
+    "move-under": activeTask && onMoveUnder ? () => onMoveUnder(activeTask) : undefined,
+    "undo-status": canUndoStatus ? onUndoStatus : undefined,
+    redo: canRedo ? onRedo : undefined,
+  };
+
   return (
     <PaletteDialog
       open={open}
@@ -589,70 +614,12 @@ export function HelpPalette({
                 {group.entries.map((entry) => {
                   const Icon = entry.icon;
                   const { label, hint } = entry;
-                  const onSelect =
-                    entry.action === "open-themes"
-                      ? onOpenThemes
-                      : entry.action === "toggle-done-lens"
-                        ? () => onToggleLens("done")
-                        : entry.action === "toggle-due-lens"
-                          ? () => onToggleLens("due")
-                          : entry.action === "toggle-agents-lens"
-                            ? () => onToggleLens("agents")
-                            : entry.action === "widen-done-lens"
-                              ? onWidenDoneLens
-                              : entry.action === "open-goal-report"
-                                ? onOpenGoalReport
-                                : entry.action === "open-settings"
-                                  ? onOpenSettings
-                                  : entry.action === "copy-task" && activeTask && onCopyTask
-                                    ? () => onCopyTask(activeTask)
-                                    : entry.action === "copy-image" && activeTask && onCopyImage
-                                      ? () => onCopyImage(activeTask)
-                                      : entry.action === "undo-status"
-                                        ? canUndoStatus && onUndoStatus
-                                          ? onUndoStatus
-                                          : undefined
-                                        : entry.action === "redo"
-                                          ? canRedo
-                                            ? onRedo
-                                            : undefined
-                                          : entry.action === "new-task"
-                                            ? onCreate
-                                            : entry.action === "log-done-task"
-                                              ? onLogDone
-                                              : entry.action === "new-child-task" &&
-                                                  activeTask &&
-                                                  onCreateChild
-                                                ? () => onCreateChild(activeTask)
-                                                : entry.action === "filter-category"
-                                                  ? onOpenCategoryPicker
-                                                  : entry.action === "filter-status"
-                                                    ? onOpenStatusMenu
-                                                    : entry.action === "filter-priority"
-                                                      ? onOpenPriorityMenu
-                                                      : entry.action === "filter-tags"
-                                                        ? onOpenTagPicker
-                                                        : entry.action === "filter-search"
-                                                          ? onOpenSearch
-                                                          : entry.action === "add-blocker" &&
-                                                              activeTask &&
-                                                              onAddBlocker
-                                                            ? () => onAddBlocker(activeTask)
-                                                            : entry.action === "pause-task" &&
-                                                                activeTask &&
-                                                                onPauseTask
-                                                              ? () => onPauseTask(activeTask)
-                                                              : entry.action === "move-under" &&
-                                                                  activeTask &&
-                                                                  onMoveUnder
-                                                                ? () => onMoveUnder(activeTask)
-                                                                : undefined;
                   return (
                     <CommandItem
                       key={entry.label}
                       value={`${group.heading} ${label}`}
                       keywords={entryKeywords(entry)}
-                      onSelect={onSelect}
+                      onSelect={entry.action ? actions[entry.action] : undefined}
                       disabled={entry.action === "redo" && !canRedo}
                     >
                       <Icon aria-hidden="true" />
