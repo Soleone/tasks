@@ -51,13 +51,14 @@ export function LearnPanel({
     ]),
   );
 
-  function play(quest: QuestView): void {
-    if (quest.state === "active") pauseQuest();
-    else {
-      if (quest.state === "paused") resumeQuest(quest.id);
-      else startQuest(quest.id);
-      onClose();
+  function toggleQuest(quest: QuestView): void {
+    if (quest.state === "active") {
+      pauseQuest();
+      return;
     }
+    if (quest.state === "paused") resumeQuest(quest.id);
+    else startQuest(quest.id);
+    onClose();
   }
 
   return (
@@ -122,7 +123,7 @@ export function LearnPanel({
                 size="sm"
                 tabIndex={-1}
                 onMouseDown={preventFocusSteal}
-                onClick={() => play(quest)}
+                onClick={() => toggleQuest(quest)}
               >
                 {quest.state === "active"
                   ? "Pause"
