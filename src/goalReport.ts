@@ -126,7 +126,7 @@ export type RangeStats = { met: number; days: number; done: number; best: number
 export function rangeStats(judged: ReadonlyMap<string, GoalsToday | null>): RangeStats {
   const stats = { met: 0, days: 0, done: 0, best: 0 };
   let run = 0;
-  for (const goals of [...judged.keys()].sort().map((day) => judged.get(day)!)) {
+  for (const [, goals] of [...judged].sort(([a], [b]) => a.localeCompare(b))) {
     if (goals === null) {
       run = 0;
       continue;
