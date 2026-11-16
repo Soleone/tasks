@@ -63,10 +63,12 @@ export function writeExport(
   );
   if (lstatSync(target, { throwIfNoEntry: false }))
     throw new CommandError("STALE_SCOPE", "an export with this name already exists; try again");
+  if (entries.length > 0xffff)
+    throw new CommandError("INVALID_ARGUMENT", "too many files for one export");
   const stage = `${target}.partial`;
   const { time, date } = dosTime(new Date(at));
   const hash = createHash("sha256");
-  const central: Buffer[] = [];
+  const centralDirectory: Buffer[] = [];
   let offset = 0;
   const descriptor = openSync(stage, "w", 0o600);
   try {
@@ -76,50 +78,48 @@ export function writeExport(
         hash.update(bytes);
         offset += bytes.length;
       };
-      if (entries.length > 0xffff)
-        throw new CommandError("INVALID_ARGUMENT", "too many files for one export");
       for (const entry of entries) {
-        const name = Buffer.from(entry.name);
+        const entryName = Buffer.from(entry.name);
         const data = entry.read();
-        if (offset + 30 + name.length + data.length > 0xffffffff)
+        if (offset + 30 + entryName.length + data.length > 0xffffffff)
           throw new CommandError("INVALID_ARGUMENT", "an export can hold at most 4 GB");
         const crc = crc32(data);
-        const local = Buffer.alloc(30);
-        local.writeUInt32LE(0x04034b50, 0);
-        local.writeUInt16LE(20, 4);
-        local.writeUInt16LE(UTF8_NAMES, 6);
-        local.writeUInt16LE(time, 10);
-        local.writeUInt16LE(date, 12);
-        local.writeUInt32LE(crc, 14);
-        local.writeUInt32LE(data.length, 18);
-        local.writeUInt32LE(data.length, 22);
-        local.writeUInt16LE(name.length, 26);
-        const header = Buffer.alloc(46);
-        header.writeUInt32LE(0x02014b50, 0);
-        header.writeUInt16LE(20, 4);
-        header.writeUInt16LE(20, 6);
-        header.writeUInt16LE(UTF8_NAMES, 8);
-        header.writeUInt16LE(time, 12);
-        header.writeUInt16LE(date, 14);
-        header.writeUInt32LE(crc, 16);
-        header.writeUInt32LE(data.length, 20);
-        header.writeUInt32LE(data.length, 24);
-        header.writeUInt16LE(name.length, 28);
-        header.writeUInt32LE(offset, 42);
-        central.push(header, name);
-        write(local);
-        write(name);
+        const localHeader = Buffer.alloc(30);
+        localHeader.writeUInt32LE(0x04034b50, 0);
+        localHeader.writeUInt16LE(20, 4);
+        localHeader.writeUInt16LE(UTF8_NAMES, 6);
+        localHeader.writeUInt16LE(time, 10);
+        localHeader.writeUInt16LE(date, 12);
+        localHeader.writeUInt32LE(crc, 14);
+        localHeader.writeUInt32LE(data.length, 18);
+        localHeader.writeUInt32LE(data.length, 22);
+        localHeader.writeUInt16LE(entryName.length, 26);
+        const centralHeader = Buffer.alloc(46);
+        centralHeader.writeUInt32LE(0x02014b50, 0);
+        centralHeader.writeUInt16LE(20, 4);
+        centralHeader.writeUInt16LE(20, 6);
+        centralHeader.writeUInt16LE(UTF8_NAMES, 8);
+        centralHeader.writeUInt16LE(time, 12);
+        centralHeader.writeUInt16LE(date, 14);
+        centralHeader.writeUInt32LE(crc, 16);
+        centralHeader.writeUInt32LE(data.length, 20);
+        centralHeader.writeUInt32LE(data.length, 24);
+        centralHeader.writeUInt16LE(entryName.length, 28);
+        centralHeader.writeUInt32LE(offset, 42);
+        centralDirectory.push(centralHeader, entryName);
+        write(localHeader);
+        write(entryName);
         write(data);
       }
       const directoryOffset = offset;
-      for (const part of central) write(part);
-      const end = Buffer.alloc(22);
-      end.writeUInt32LE(0x06054b50, 0);
-      end.writeUInt16LE(entries.length, 8);
-      end.writeUInt16LE(entries.length, 10);
-      end.writeUInt32LE(offset - directoryOffset, 12);
-      end.writeUInt32LE(directoryOffset, 16);
-      write(end);
+      for (const part of centralDirectory) write(part);
+      const endRecord = Buffer.alloc(22);
+      endRecord.writeUInt32LE(0x06054b50, 0);
+      endRecord.writeUInt16LE(entries.length, 8);
+      endRecord.writeUInt16LE(entries.length, 10);
+      endRecord.writeUInt32LE(offset - directoryOffset, 12);
+      endRecord.writeUInt32LE(directoryOffset, 16);
+      write(endRecord);
       fsyncSync(descriptor);
     } finally {
       closeSync(descriptor);
