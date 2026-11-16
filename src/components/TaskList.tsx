@@ -247,6 +247,12 @@ type DeleteReceipt = {
   key: string;
 };
 
+function boundaryMessage(direction: TaskMoveDirection): string {
+  return direction === "up" || direction === "start"
+    ? "Already at the beginning."
+    : "Already at the end.";
+}
+
 const TOGGLE_FEEDBACK_DURATION_MS = 900;
 /** Rows from the end of the loaded tasks at which the next page starts loading. */
 const LOAD_AHEAD_ROWS = 20;
@@ -678,14 +684,6 @@ export function TaskList({
     );
   }
 
-  function startFilterMode(): void {
-    startToolbarMode("filter");
-  }
-
-  function startSortMode(): void {
-    startToolbarMode("sort");
-  }
-
   function focusListBeforeToolbarDialog(): void {
     if (!isDialogOpen() && !composerOpenRef.current) returnToList();
   }
@@ -873,17 +871,6 @@ export function TaskList({
     return null;
   }
 
-  function setMutationPending(taskId: string, pending: boolean): void {
-    if (pending) mutationPending.current.add(taskId);
-    else mutationPending.current.delete(taskId);
-    setMutationPendingIds((previous) => {
-      const next = new Set(previous);
-      if (pending) next.add(taskId);
-      else next.delete(taskId);
-      return next;
-    });
-  }
-
   function waitForListRender(): Promise<void> {
     return new Promise((resolve) => requestAnimationFrame(() => resolve()));
   }
@@ -930,10 +917,7 @@ export function TaskList({
     }
     const placement = placementForMove(direction, currentSelected[0], currentSelected, currentRows);
     if (!placement) {
-      const boundary =
-        direction === "up" || direction === "start"
-          ? "Already at the beginning."
-          : "Already at the end.";
+      const boundary = boundaryMessage(direction);
       onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
       return true;
     }
@@ -964,15 +948,13 @@ export function TaskList({
         ? reorderReceipt.current
         : { signature, key: randomUUID() };
     reorderReceipt.current = receipt;
-    currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, true));
+    const movingIds = currentSelected.map((candidate) => candidate.task.id);
+    setMutationPending(movingIds, true);
     try {
       const result = await reorderTasks(commandTasks, placement, { idempotencyKey: receipt.key });
       reorderReceipt.current = null;
       if (result.changed === false) {
-        const boundary =
-          direction === "up" || direction === "start"
-            ? "Already at the beginning."
-            : "Already at the end.";
+        const boundary = boundaryMessage(direction);
         onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
         return true;
       }
@@ -1005,7 +987,7 @@ export function TaskList({
         );
       }
     } finally {
-      currentSelected.forEach((candidate) => setMutationPending(candidate.task.id, false));
+      setMutationPending(movingIds, false);
     }
     return false;
   }
@@ -1032,11 +1014,7 @@ export function TaskList({
     if (sortField === "manual") {
       const placement = placementForMove(direction, active, selected, rows);
       if (!placement) {
-        onAnnounce(
-          direction === "up" || direction === "start"
-            ? "Already at the beginning."
-            : "Already at the end.",
-        );
+        onAnnounce(boundaryMessage(direction));
         return;
       }
       const preview = movedTaskRows(rows, selected, placement);
@@ -1170,7 +1148,7 @@ export function TaskList({
     return selected.length > 0 ? selected : activeTask ? [activeTask] : [];
   }
 
-  function setMutationPendingMany(taskIds: readonly string[], pending: boolean): void {
+  function setMutationPending(taskIds: readonly string[], pending: boolean): void {
     for (const taskId of taskIds) {
       if (pending) mutationPending.current.add(taskId);
       else mutationPending.current.delete(taskId);
@@ -1305,7 +1283,7 @@ export function TaskList({
     if (items.length === 0) return;
     const receipt = batchTransitionReceipt(items);
     const selectedIds = items.map((item) => item.id);
-    setMutationPendingMany(selectedIds, true);
+    setMutationPending(selectedIds, true);
     try {
       const result = await transitionTasks(items, { idempotencyKey: receipt.key });
       batchTransitionReceiptRef.current = null;
@@ -1339,7 +1317,7 @@ export function TaskList({
         );
       }
     } finally {
-      setMutationPendingMany(selectedIds, false);
+      setMutationPending(selectedIds, false);
     }
   }
 
@@ -1496,7 +1474,7 @@ export function TaskList({
     const receipt = batchTransitionReceipt(items);
     const selectedIds = selected.map((task) => task.id);
     selectedIds.forEach((taskId) => deletePending.current.add(taskId));
-    setMutationPendingMany(selectedIds, true);
+    setMutationPending(selectedIds, true);
     try {
       const result = await transitionTasks(items, { idempotencyKey: receipt.key });
       batchTransitionReceiptRef.current = null;
@@ -1517,7 +1495,7 @@ export function TaskList({
       }
     } finally {
       selectedIds.forEach((taskId) => deletePending.current.delete(taskId));
-      setMutationPendingMany(selectedIds, false);
+      setMutationPending(selectedIds, false);
     }
   }
 
@@ -1629,8 +1607,8 @@ export function TaskList({
       deleteSelectedTasks,
       returnToList,
       clearAllFilters: onClearAllFilters,
-      startFilterMode,
-      startSortMode,
+      startFilterMode: () => startToolbarMode("filter"),
+      startSortMode: () => startToolbarMode("sort"),
       applyExactStatus,
       applySortField,
       reverseSort,
