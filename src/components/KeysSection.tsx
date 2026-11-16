@@ -65,8 +65,7 @@ export function KeysSection(): ReactElement {
 
   const changed = BINDINGS.filter((binding) => keyFor(binding.id) !== binding.key);
   const words = query.trim().toLowerCase();
-  const shown = BINDINGS.filter((binding) => {
-    if (changedOnly && keyFor(binding.id) === binding.key) return false;
+  const shown = (changedOnly ? changed : BINDINGS).filter((binding) => {
     const key = keyFor(binding.id);
     const text = `${binding.label} ${key ? keyCaps(key).join("+") : "off"}`.toLowerCase();
     return text.includes(words);
@@ -135,6 +134,8 @@ export function KeysSection(): ReactElement {
               {rows.map(({ id, label: name }) => {
                 const key = keyFor(id);
                 const isChanged = key !== defaultKey(id);
+                const isRecording = recording === id;
+                const defaultCaps = keyCaps(defaultKey(id)).join("+");
                 return (
                   <div
                     key={id}
@@ -152,26 +153,22 @@ export function KeysSection(): ReactElement {
                     </span>
                     <span className="flex items-center gap-1">
                       <Button
-                        variant={recording === id ? "outline" : "ghost"}
+                        variant={isRecording ? "outline" : "ghost"}
                         size="sm"
-                        className={cn("min-w-24 justify-end", recording === id && "justify-center")}
+                        className={cn("min-w-24 justify-end", isRecording && "justify-center")}
                         aria-label={isChanged ? `${name} (changed)` : name}
                         aria-description={
-                          recording === id
-                            ? "Press the new key"
-                            : key
-                              ? keyCaps(key).join("+")
-                              : "Off"
+                          isRecording ? "Press the new key" : key ? keyCaps(key).join("+") : "Off"
                         }
-                        aria-pressed={recording === id}
+                        aria-pressed={isRecording}
                         onClick={() => {
                           setClash(null);
-                          setRecording(recording === id ? null : id);
+                          setRecording(isRecording ? null : id);
                         }}
                         onBlur={() => setRecording(null)}
                         onKeyDown={(event) => recordKey(id, event)}
                       >
-                        {recording === id ? (
+                        {isRecording ? (
                           <span className="text-muted-foreground">Press a key…</span>
                         ) : key ? (
                           <Caps value={key} />
@@ -180,13 +177,13 @@ export function KeysSection(): ReactElement {
                         )}
                       </Button>
                       <Hinted
-                        hint={`Back to ${keyCaps(defaultKey(id)).join("+")}`}
+                        hint={`Back to ${defaultCaps}`}
                         render={
                           <Button
                             variant="ghost"
                             size="icon-sm"
                             className={cn(!isChanged && "invisible")}
-                            aria-label={`Reset ${name} to ${keyCaps(defaultKey(id)).join("+")}`}
+                            aria-label={`Reset ${name} to ${defaultCaps}`}
                             onClick={() => choose(id, defaultKey(id))}
                           />
                         }
@@ -236,7 +233,7 @@ export function KeysSection(): ReactElement {
             ))}
           </>
         )}
-        {!shown.length && (words || changedOnly) && (
+        {!shown.length && (
           <p className="p-6 text-center text-sm text-muted-foreground">
             {words ? "No shortcuts match." : "Every key is the default."}
           </p>
