@@ -64,11 +64,7 @@ function settingsTabStops(dialog: HTMLElement): HTMLElement[] {
   return [...dialog.querySelectorAll<HTMLElement>(settingsTabStopSelector)].filter((element) => {
     if (
       element.tabIndex < 0 ||
-      element.hasAttribute("hidden") ||
-      element.closest("[hidden], [inert]") !== null
-    )
-      return false;
-    if (
+      element.closest("[hidden], [inert]") !== null ||
       element.hasAttribute("data-base-ui-focus-guard") ||
       element.getAttribute("aria-disabled") === "true"
     )
