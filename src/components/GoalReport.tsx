@@ -126,13 +126,11 @@ function Report({
   const root = useRef<HTMLElement>(null);
   const span = useMemo(() => reportSpan(settings, done), [settings, done]);
   const period = range === "month" ? day.slice(0, 7) : day.slice(0, 4);
+  const first = range === "month" ? `${period}-01` : `${period}-01-01`;
   // A new grid only when the month or year changes, not with every day selected in it.
   const weeks = useMemo(
-    () =>
-      range === "month"
-        ? monthWeeks(settings, `${period}-01`)
-        : yearWeeks(settings, `${period}-01-01`),
-    [settings, range, period],
+    () => (range === "month" ? monthWeeks(settings, first) : yearWeeks(settings, first)),
+    [settings, range, first],
   );
   const judged = useMemo(
     () => judgeDays(settings, done, weeks.flat(), span),
@@ -265,10 +263,8 @@ function Report({
     return () => window.removeEventListener("keydown", listener, true);
   }, []);
 
-  const first = range === "month" ? `${period}-01` : `${period}-01-01`;
   const canGoBack = first > span.first;
   const canGoOn = shiftDay(first, range, 1) <= span.today;
-  const unit = range === "month" ? "month" : "year";
 
   return (
     <section
@@ -282,7 +278,7 @@ function Report({
           <QuietButton
             size="icon-sm"
             tabIndex={-1}
-            aria-label={`Previous ${unit}`}
+            aria-label={`Previous ${range}`}
             disabled={!canGoBack}
             onMouseDown={preventFocusSteal}
             onClick={() => select(shiftDay(day, range, -1))}
@@ -297,7 +293,7 @@ function Report({
           <QuietButton
             size="icon-sm"
             tabIndex={-1}
-            aria-label={`Next ${unit}`}
+            aria-label={`Next ${range}`}
             disabled={!canGoOn}
             onMouseDown={preventFocusSteal}
             onClick={() => select(shiftDay(day, range, 1))}
