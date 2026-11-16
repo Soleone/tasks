@@ -399,7 +399,10 @@ export function TaskComposer({
     if (suggestionItems.length === 0) return false;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      moveSuggestion(event.key === "ArrowDown" ? 1 : -1);
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      setSuggestionIndex(
+        (current) => (current + step + suggestionItems.length) % suggestionItems.length,
+      );
       return true;
     }
     const row = suggestionItems[suggestionIndex];
@@ -411,7 +414,13 @@ export function TaskComposer({
     }
     if (event.key === "Tab" && !event.shiftKey) {
       event.preventDefault();
-      tabSuggestion(suggestion, row);
+      practice("shorthand.tab");
+      // The first Tab completes the name as text; a second one chooses it.
+      if (row.slug === suggestion.query) chooseSuggestion(suggestion, row.slug);
+      else {
+        lastLift.current = null;
+        commitTitle(completeSuggestion(suggestion, row.slug));
+      }
       return true;
     }
     return false;
@@ -433,22 +442,6 @@ export function TaskComposer({
     event.preventDefault();
     chooseSuggestion(partial, dueChoice);
     return true;
-  }
-
-  function moveSuggestion(delta: -1 | 1): void {
-    setSuggestionIndex(
-      (current) => (current + delta + suggestionItems.length) % suggestionItems.length,
-    );
-  }
-
-  // The first Tab completes the name as text; a second one chooses it.
-  function tabSuggestion(partial: PartialToken, row: SuggestionRow): void {
-    practice("shorthand.tab");
-    if (row.slug === partial.query) chooseSuggestion(partial, row.slug);
-    else {
-      lastLift.current = null;
-      commitTitle(completeSuggestion(partial, row.slug));
-    }
   }
 
   function showNotes(): void {
