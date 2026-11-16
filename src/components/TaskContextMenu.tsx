@@ -16,12 +16,11 @@ import {
   Pencil,
 } from "lucide-react";
 import { cn } from "cn";
-import type { TaskEffort, TaskPriority, TaskStatus } from "@/backend/taskModel";
+import type { TaskEffort, TaskPriority } from "@/backend/taskModel";
 import type { TaskView } from "./taskView";
 import {
   EFFORT_ICONS,
   EFFORTS_LARGEST_FIRST,
-  EXACT_STATUS_META,
   PRIORITY_META,
   effortTitle,
   taskStatusMeta,
@@ -119,7 +118,7 @@ export function TaskContextMenu({
                   onValueChange={(status: SettableStatus) => actions.onSetStatus(task, status)}
                 >
                   {SETTABLE_STATUSES.map((status) => {
-                    const { Icon, color } = taskStatusMeta[status];
+                    const { Icon, color, label } = taskStatusMeta[status];
                     return (
                       <ContextMenuRadioItem
                         key={status}
@@ -128,7 +127,7 @@ export function TaskContextMenu({
                         closeOnClick
                       >
                         <Icon aria-hidden="true" className={color} />
-                        {statusLabel(status)}
+                        {label}
                       </ContextMenuRadioItem>
                     );
                   })}
@@ -240,8 +239,4 @@ export function TaskContextMenu({
       ) : null}
     </ContextMenu>
   );
-}
-
-function statusLabel(status: TaskStatus): string {
-  return EXACT_STATUS_META.find((entry) => entry.status === status)?.label ?? status;
 }
