@@ -61,19 +61,16 @@ export function TagPicker({
 
     const commandRoot = searchInput.current?.closest("[cmdk-root]");
     const activeItem = commandRoot?.querySelector<HTMLElement>('[cmdk-item][aria-selected="true"]');
+    const clickable = activeItem && activeItem.getAttribute("aria-disabled") !== "true";
     if (event.key === "Enter") {
       event.preventDefault();
-      if (
-        (selected.length === 0 || activeItem === clearTagsItem.current) &&
-        activeItem &&
-        activeItem.getAttribute("aria-disabled") !== "true"
-      ) {
+      if (clickable && (selected.length === 0 || activeItem === clearTagsItem.current)) {
         activeItem.click();
       }
       onClose();
       return;
     }
-    if (!activeItem || activeItem.getAttribute("aria-disabled") === "true") return;
+    if (!clickable) return;
     event.preventDefault();
     activeItem.click();
   }
