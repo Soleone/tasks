@@ -66,20 +66,20 @@ function initializeQueryCache(database: DatabaseSync): void {
     );
     CREATE TABLE v2_query_tasks (id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, version INTEGER NOT NULL);
   `);
-  if (version !== 2 && version !== 3 && version !== 4)
+  if (version < 2)
     database.exec(`
     CREATE TABLE v2_receipts (context TEXT NOT NULL, key TEXT NOT NULL, identity TEXT NOT NULL, result TEXT NOT NULL, PRIMARY KEY(context, key));
     CREATE TABLE v2_operations (id TEXT PRIMARY KEY, context TEXT NOT NULL, task_id TEXT NOT NULL, command TEXT NOT NULL,
       actor TEXT NOT NULL, created_at TEXT NOT NULL, before_record TEXT NOT NULL, after_record TEXT NOT NULL);
     PRAGMA user_version = 2;
   `);
-  if (version !== 3 && version !== 4)
+  if (version < 3)
     database.exec(`
     CREATE TABLE v2_operation_members (operation_id TEXT NOT NULL, task_id TEXT NOT NULL, PRIMARY KEY(operation_id, task_id));
     CREATE INDEX v2_operation_members_task ON v2_operation_members(task_id, operation_id);
     PRAGMA user_version = 3;
   `);
-  if (version !== 4)
+  if (version < 4)
     database.exec(`
     CREATE TABLE v2_undo_claims (operation_id TEXT NOT NULL, task_id TEXT NOT NULL, undo_id TEXT NOT NULL, PRIMARY KEY(operation_id, task_id));
     PRAGMA user_version = 4;
