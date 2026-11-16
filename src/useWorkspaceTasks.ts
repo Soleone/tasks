@@ -192,18 +192,15 @@ export function useWorkspaceTasks({
                   : { slug, label: slug, taskCount: 0 };
               });
               setTagFilter((previous) => {
-                const previousSlugs = previous.map((tag) => tag.slug);
-                const sameSlugs =
-                  previousSlugs.length === enriched.length &&
-                  previousSlugs.every((slug, index) => slug === enriched[index].slug);
-                const sameMeta =
+                const unchanged =
                   previous.length === enriched.length &&
                   previous.every(
                     (tag, index) =>
+                      tag.slug === enriched[index].slug &&
                       tag.label === enriched[index].label &&
                       tag.taskCount === enriched[index].taskCount,
                   );
-                return sameSlugs && sameMeta ? previous : enriched;
+                return unchanged ? previous : enriched;
               });
             }
           }
