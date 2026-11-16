@@ -71,20 +71,16 @@ function shutdown(signal) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-let exited = 0;
-function onExit(child, name, code) {
+function onExit(name, code) {
   if (shuttingDown) {
     return;
   }
-  exited += 1;
   process.stderr.write(`[dev:web] ${name} exited with code ${code ?? "unknown"}; stopping.\n`);
   shutdown("SIGTERM");
-  if (exited === 1) {
-    setTimeout(() => process.exit(typeof code === "number" ? code : 1), 500).unref();
-  }
+  setTimeout(() => process.exit(typeof code === "number" ? code : 1), 500).unref();
 }
 
-backend.on("exit", (code) => onExit(backend, "backend", code));
-vite.on("exit", (code) => onExit(vite, "vite", code));
+backend.on("exit", (code) => onExit("backend", code));
+vite.on("exit", (code) => onExit("vite", code));
 
 process.stdout.write("[dev:web] backend + vite starting. Open the URL vite prints below.\n");
