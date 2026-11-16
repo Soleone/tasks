@@ -45,7 +45,7 @@ export function homeCache(home: Home, client: HomeClient): string {
 
 function isDirectory(directory: string): boolean {
   const stat = lstatSync(directory, { throwIfNoEntry: false });
-  return stat !== undefined && stat.isDirectory() && !stat.isSymbolicLink();
+  return stat !== undefined && stat.isDirectory();
 }
 
 /** The home whose `sync/` this root is, or undefined for old folders and other bare roots. */
@@ -154,15 +154,14 @@ export function createHome(selected: string): Home {
   }
   const homePath = path.join(parent, path.basename(requested));
   const existing = lstatSync(homePath, { throwIfNoEntry: false });
-  if (existing && (!existing.isDirectory() || existing.isSymbolicLink()))
+  if (existing && !existing.isDirectory())
     refuse("HOME_CONFLICT", `${homePath} exists and is not a folder.`);
   const canonical = existing ? realpathSync.native(homePath) : homePath;
   refuseTaskFolders(canonical);
   refuseUnsafeLocation(canonical);
-  if (existing) {
-    if (readdirSync(canonical).some((name) => !CREATION_ENTRIES.has(name)))
-      refuse("HOME_CONFLICT", `${canonical} isn't empty. Choose an empty or new folder.`);
-  } else {
+  if (existing && readdirSync(canonical).some((name) => !CREATION_ENTRIES.has(name)))
+    refuse("HOME_CONFLICT", `${canonical} isn't empty. Choose an empty or new folder.`);
+  if (!existing) {
     mkdirSync(canonical, { mode: 0o700 });
     syncDirectory(parent);
   }
