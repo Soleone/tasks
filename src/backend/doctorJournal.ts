@@ -226,15 +226,15 @@ function guardDoctor(
     canonicalJson(actual.rootEntries) !== canonicalJson(original.rootEntries)
   )
     conflict();
-  const allowedPrivate = intent.writes
+  const allowedPrivateNames = intent.writes
     .map((_, index) => path.basename(stagePath(intent, index)))
     .concat(
       intent.plan.removedConflictPaths.map((_, index) =>
         path.basename(quarantinePath(intent, index)),
       ),
     );
-  const expectedNames = new Set(original.taskEntries),
-    expected = new Map(original.files.map((file) => [file.relativePath, file]));
+  const expectedTaskNames = new Set(original.taskEntries),
+    expectedFiles = new Map(original.files.map((file) => [file.relativePath, file]));
   for (const [index, write] of intent.writes.entries()) {
     const relative = `tasks/${write.taskId}.json`,
       file = actual.files.find((file) => file.relativePath === relative),
@@ -245,23 +245,23 @@ function guardDoctor(
       file.beforeBytes === write.nextBytes &&
       file.identity === state.stageIdentity
     ) {
-      expected.set(relative, file);
-      expectedNames.add(`${write.taskId}.json`);
-    } else {
-      if (
-        state.published ||
-        (write.beforeBytes === null && state.started && startingPublication !== index)
-      )
-        conflict();
-      if (
-        write.beforeBytes === null
-          ? !!file
-          : !file ||
-            file.beforeBytes !== write.beforeBytes ||
-            file.identity !== expected.get(relative)!.identity
-      )
-        conflict();
+      expectedFiles.set(relative, file);
+      expectedTaskNames.add(`${write.taskId}.json`);
+      continue;
     }
+    if (
+      state.published ||
+      (write.beforeBytes === null && state.started && startingPublication !== index)
+    )
+      conflict();
+    if (
+      write.beforeBytes === null
+        ? !!file
+        : !file ||
+          file.beforeBytes !== write.beforeBytes ||
+          file.identity !== expectedFiles.get(relative)!.identity
+    )
+      conflict();
   }
   for (const [index, relative] of intent.plan.removedConflictPaths.entries()) {
     const present = actual.files.some((file) => file.relativePath === relative),
@@ -269,16 +269,16 @@ function guardDoctor(
     if (quarantined) {
       verifyQuarantine(intent, index);
       if (present || progress.writes.some((state) => !state.published)) conflict();
-      expected.delete(relative);
-      expectedNames.delete(path.basename(relative));
+      expectedFiles.delete(relative);
+      expectedTaskNames.delete(path.basename(relative));
     } else if (!present) conflict();
   }
   if (
-    canonicalJson(actual.taskEntries.filter((name) => !allowedPrivate.includes(name))) !==
-      canonicalJson([...expectedNames].sort()) ||
+    canonicalJson(actual.taskEntries.filter((name) => !allowedPrivateNames.includes(name))) !==
+      canonicalJson([...expectedTaskNames].sort()) ||
     canonicalJson(actual.files) !==
       canonicalJson(
-        [...expected.values()].sort((a, b) =>
+        [...expectedFiles.values()].sort((a, b) =>
           a.relativePath === "workspace.json"
             ? -1
             : b.relativePath === "workspace.json"
