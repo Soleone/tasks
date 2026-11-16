@@ -171,18 +171,22 @@ function listTasks(
         task.description.toLowerCase().includes(search)),
   );
   if (sort !== "manual") {
-    const sortValue = (task: TaskProjection): string | number =>
-      sort === "priority"
-        ? task.priority
-        : sort === "effort"
-          ? task.effort
-          : sort === "created"
-            ? task.createdAt
-            : sort === "updated"
-              ? task.updatedAt
-              : sort === "closed"
-                ? (task.closedAt ?? "")
-                : (task.due ?? "");
+    const sortValue = (task: TaskProjection): string | number => {
+      switch (sort) {
+        case "priority":
+          return task.priority;
+        case "effort":
+          return task.effort;
+        case "created":
+          return task.createdAt;
+        case "updated":
+          return task.updatedAt;
+        case "closed":
+          return task.closedAt ?? "";
+        default:
+          return task.due ?? "";
+      }
+    };
     // Undated tasks, and active tasks under the closed sort, stay last in either direction.
     const missing = (task: TaskProjection): boolean =>
       sort === "due" ? task.due === null : sort === "closed" && task.closedAt === null;
