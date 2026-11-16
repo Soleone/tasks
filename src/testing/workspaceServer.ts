@@ -127,6 +127,30 @@ async function body(request: http.IncomingMessage): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
+/** Answers one request from `appWorkspace.tsx`; any unknown path stops the workspace. */
+async function route(request: http.IncomingMessage): Promise<unknown> {
+  const { pathname, searchParams } = new URL(request.url ?? "/", "http://localhost");
+  const workspace = searchParams.get("url") ?? "";
+  const name = searchParams.get("name") ?? "";
+  switch (pathname) {
+    case "/start":
+      return { url: await startWorkspace() };
+    case "/cli":
+      return runCli(workspace, await body(request));
+    case "/arrive":
+      return arrive(workspace, name);
+    case "/theme":
+      return dropTheme(workspace, name, (await body(request)) as string);
+    case "/conflict":
+      return conflict(workspace, searchParams.get("id") ?? "", (await body(request)) as object);
+    case "/lose-image":
+      return loseImage(workspace, name);
+    default:
+      await stopWorkspace(workspace);
+      return {};
+  }
+}
+
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
   const bundle = mkdtempSync(path.join(os.tmpdir(), "tasks-client-bridge-"));
   bridgeScript = path.join(bundle, "workspaceBridge.mjs");
@@ -139,35 +163,13 @@ export default async function setup(project: TestProject): Promise<() => Promise
     logLevel: "error",
   });
   const server = http.createServer((request, response) => {
-    const url = new URL(request.url ?? "/", "http://localhost");
-    const workspace = url.searchParams.get("url") ?? "";
-    const work =
-      url.pathname === "/start"
-        ? startWorkspace().then((devUrl) => ({ url: devUrl }))
-        : url.pathname === "/cli"
-          ? body(request).then((line) => runCli(workspace, line))
-          : url.pathname === "/arrive"
-            ? Promise.resolve().then(() => arrive(workspace, url.searchParams.get("name") ?? ""))
-            : url.pathname === "/theme"
-              ? body(request).then((text) =>
-                  dropTheme(workspace, url.searchParams.get("name") ?? "", text as string),
-                )
-              : url.pathname === "/conflict"
-                ? body(request).then((patch) =>
-                    conflict(workspace, url.searchParams.get("id") ?? "", patch as object),
-                  )
-                : url.pathname === "/lose-image"
-                  ? Promise.resolve().then(() =>
-                      loseImage(workspace, url.searchParams.get("name") ?? ""),
-                    )
-                  : stopWorkspace(workspace).then(() => ({}));
-    work.then(
-      (body) => {
+    route(request).then(
+      (reply) => {
         response.writeHead(200, {
           "content-type": "application/json",
           "access-control-allow-origin": "*",
         });
-        response.end(JSON.stringify(body));
+        response.end(JSON.stringify(reply));
       },
       (error: unknown) => {
         response.writeHead(500, { "access-control-allow-origin": "*" });
