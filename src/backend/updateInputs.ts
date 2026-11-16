@@ -16,11 +16,11 @@ export type UpdateInput = {
   >;
 };
 
+/** The fields typed text sets, so a patch takes either the text or these, never both. */
+const SHORTHAND_FIELDS = ["title", "category", "tags", "due"] as const;
+
 export function parseContentPatch(args: Record<string, unknown>): UpdateInput["patch"] {
-  if (
-    args.text !== undefined &&
-    ["title", "category", "tags", "due"].some((field) => args[field] !== undefined)
-  )
+  if (args.text !== undefined && SHORTHAND_FIELDS.some((field) => args[field] !== undefined))
     invalidInput("mixed text/classification");
   const patch: UpdateInput["patch"] = {};
   if (args.text !== undefined) {
@@ -121,9 +121,7 @@ export function applyUpdate(
   // Typed text is kept only while it still describes what it set.
   if (
     input.patch.text === undefined &&
-    (["title", "category", "tags", "due"] as const).some(
-      (field) => JSON.stringify(next[field]) !== JSON.stringify(task[field]),
-    )
+    SHORTHAND_FIELDS.some((field) => JSON.stringify(next[field]) !== JSON.stringify(task[field]))
   )
     next.text = null;
   const changed = JSON.stringify(next) !== JSON.stringify(task);
