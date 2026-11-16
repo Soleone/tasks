@@ -172,20 +172,22 @@ export async function listTasksTogether(
   );
   return {
     lists: pages,
-    ...(categories ? { categories: categoryOptions(categories) } : {}),
+    ...(categories ? { categories: classificationOptions(categories) } : {}),
   };
 }
 
-function categoryOptions(entries: { slug: string; taskCount: number }[]): ClassificationOption[] {
+function classificationOptions(
+  entries: { slug: string; taskCount: number }[],
+): ClassificationOption[] {
   return entries.map((entry) => ({ ...entry, label: entry.slug }));
 }
 
 export async function listCategories(): Promise<CategoryListResult> {
-  return { categories: categoryOptions(await selected().categories()) };
+  return { categories: classificationOptions(await selected().categories()) };
 }
 
 export async function listTags(): Promise<TagListResult> {
-  return { tags: categoryOptions(await selected().tags()) };
+  return { tags: classificationOptions(await selected().tags()) };
 }
 
 /** The newest thing an agent did to a task. */
