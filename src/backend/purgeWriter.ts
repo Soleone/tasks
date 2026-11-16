@@ -94,12 +94,12 @@ function removalSummary(request: Request, plan: RemovalPlan, attachments: string
 
 export function commitPurge(database: DatabaseSync, intent: PurgeIntent): Record<string, unknown> {
   guardPurge(intent, true);
-  requirePurgeBudget(database, purgeIntentTasks(intent).length);
+  const tasks = purgeIntentTasks(intent);
+  requirePurgeBudget(database, tasks.length);
   const snapshot = applyPurgeJournal(intent);
   const authority = synchronizeAuthority(database, intent.root, snapshot);
   const changedIds = [...intent.purgedIds, ...intent.rewrites.map((rewrite) => rewrite.taskId)];
   invalidatePurgeUndo(database, authority.writeContext, changedIds, intent.operationId);
-  const tasks = purgeIntentTasks(intent);
   const plan = planRemoval(intent.request, tasks);
   if (changedIds.length) {
     database.prepare("INSERT INTO v2_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
@@ -159,10 +159,11 @@ export function executeRemoval(request: Request, rootPath: string, cachePath: st
       const released = [...listedAttachments(changedTasks)].filter(
         (name) => !stillListed.has(name),
       );
-      const sizes = new Map<string, number>();
-      for (const name of clearing
+      const candidates = clearing
         ? released
-        : [...released, ...unlistedAttachments(root.rootPath, snapshot.tasks, at)]) {
+        : [...released, ...unlistedAttachments(root.rootPath, snapshot.tasks, at)];
+      const sizes = new Map<string, number>();
+      for (const name of candidates) {
         const size = fileSize(attachmentPath(root.rootPath, name));
         if (size !== undefined) sizes.set(name, size);
       }
@@ -188,8 +189,8 @@ export function executeRemoval(request: Request, rootPath: string, cachePath: st
         return { writeContext: authority.writeContext, result };
       }
       const files = snapshot.files.map((file) => {
-        const target = path.join(root.rootPath, file.relativePath),
-          identity = purgeFileIdentity(target);
+        const target = path.join(root.rootPath, file.relativePath);
+        const identity = purgeFileIdentity(target);
         const before = readRegularFile(target);
         if (exactHash(before) !== file.sha256 || purgeFileIdentity(target) !== identity)
           throw new CommandError("STALE_FILE", "purge source changed before staging");
