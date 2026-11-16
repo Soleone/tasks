@@ -44,14 +44,13 @@ export function send(workspace: CopyTestWorkspace, envelope: object): Response {
 }
 
 export function success(response: Response): Extract<Response, { ok: true }> {
-  assert.equal(response.ok, true, JSON.stringify(response));
-  if (!response.ok) throw new Error("failed");
+  assert.ok(response.ok, JSON.stringify(response));
   return response;
 }
 
 export function fail(response: Response, code: string): void {
-  assert.equal(response.ok, false, JSON.stringify(response));
-  if (!response.ok) assert.equal(response.error.code, code, JSON.stringify(response));
+  assert.ok(!response.ok, JSON.stringify(response));
+  assert.equal(response.error.code, code, JSON.stringify(response));
 }
 
 /** A cache copied from another home is refused until the owner starts a new history with it. */
@@ -73,7 +72,7 @@ export function run(workspace: CopyTestWorkspace, request: object, loader?: stri
       "--database",
       workspace.cache,
     ],
-    { input: JSON.stringify(request), env: process.env, encoding: "utf8", timeout: 10_000 },
+    { input: JSON.stringify(request), encoding: "utf8", timeout: 10_000 },
   );
 }
 
