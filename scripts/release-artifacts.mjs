@@ -29,7 +29,7 @@ function verifyTag(tag) {
     throw new Error(`Release tag ${tag} does not match package.json version ${version}.`);
 }
 
-function requireFile(file) {
+function requireNonEmpty(file) {
   if (statSync(file).size === 0) throw new Error(`Empty release asset: ${file}`);
 }
 
@@ -38,10 +38,19 @@ function stage(platform, source, output) {
   for (const file of files[platform]) {
     for (const suffix of file.target ? ["", ".sig"] : [""]) {
       const input = path.join(source, `${file.source}${suffix}`);
-      requireFile(input);
+      requireNonEmpty(input);
       copyFileSync(input, path.join(output, `${file.name}${suffix}`));
     }
   }
+}
+
+function releaseNotes() {
+  const changelog = readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
+  const section = changelog
+    .split(/(?=^#{1,2} \[?\d+\.\d+\.\d+)/m)
+    .find((part) => /^#{1,2} \[?(\d+\.\d+\.\d+)/.exec(part)?.[1] === version);
+  if (!section) throw new Error(`No changelog entry for ${version}.`);
+  return section.slice(section.indexOf("\n") + 1).trim();
 }
 
 function manifest(directory, tag) {
@@ -51,7 +60,7 @@ function manifest(directory, tag) {
     throw new Error("Set GITHUB_REPOSITORY to the release's owner/repository.");
   const platforms = {};
   for (const file of Object.values(files).flat()) {
-    requireFile(path.join(directory, file.name));
+    requireNonEmpty(path.join(directory, file.name));
     if (!file.target) continue;
     const signature = readFileSync(path.join(directory, `${file.name}.sig`), "utf8").trim();
     if (!signature) throw new Error(`Empty updater signature for ${file.name}.`);
@@ -60,12 +69,7 @@ function manifest(directory, tag) {
       url: `https://github.com/${repository}/releases/download/${tag}/${file.name}`,
     };
   }
-  const changelog = readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
-  const section = changelog
-    .split(/(?=^#{1,2} \[?\d+\.\d+\.\d+)/m)
-    .find((part) => /^#{1,2} \[?(\d+\.\d+\.\d+)/.exec(part)?.[1] === version);
-  if (!section) throw new Error(`No changelog entry for ${version}.`);
-  const notes = section.slice(section.indexOf("\n") + 1).trim();
+  const notes = releaseNotes();
   writeFileSync(
     path.join(directory, "latest.json"),
     `${JSON.stringify({ version, notes, pub_date: new Date().toISOString(), platforms }, null, 2)}\n`,
