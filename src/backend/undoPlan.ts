@@ -115,7 +115,7 @@ export function historyTasks(value: unknown): CanonicalTask[] {
   if (new Set(tasks.map((task) => task.id)).size !== tasks.length) unavailable();
   return tasks;
 }
-function historyScopes(value: unknown): HistoryScope[] {
+function historyScope(value: unknown): HistoryScope {
   if (
     !isRecord(value) ||
     !Array.isArray(value.scope) ||
@@ -151,7 +151,7 @@ function historyScopes(value: unknown): HistoryScope[] {
     )
   )
     unavailable();
-  return [{ parentId: value.parentId as string | null, tasks: pairs }];
+  return { parentId: value.parentId as string | null, tasks: pairs };
 }
 export function historyAffected(source: HistorySource): string[] {
   return [
@@ -376,20 +376,18 @@ export function planUndo(
   // Graph validity precedes order eligibility, so a restored link cannot hide a cycle behind a scope failure.
   for (const source of sources) {
     if (!["task.reorder", "task.order.normalize"].includes(historyOrigin(source).command)) continue;
-    for (const scope of historyScopes(source.after)) {
-      const current = tasks
-        .filter((task) => task.parentId === scope.parentId)
-        .sort(compareTasks)
-        .map(({ id, orderKey }) => ({ id, orderKey }));
-      if (canonicalJson(current) !== canonicalJson(scope.tasks)) unavailable();
-    }
-    for (const scope of historyScopes(source.before)) {
-      const restored = result
-        .filter((task) => task.parentId === scope.parentId)
-        .sort(compareTasks)
-        .map(({ id, orderKey }) => ({ id, orderKey }));
-      if (canonicalJson(restored) !== canonicalJson(scope.tasks)) unavailable();
-    }
+    const afterScope = historyScope(source.after);
+    const current = tasks
+      .filter((task) => task.parentId === afterScope.parentId)
+      .sort(compareTasks)
+      .map(({ id, orderKey }) => ({ id, orderKey }));
+    if (canonicalJson(current) !== canonicalJson(afterScope.tasks)) unavailable();
+    const beforeScope = historyScope(source.before);
+    const restored = result
+      .filter((task) => task.parentId === beforeScope.parentId)
+      .sort(compareTasks)
+      .map(({ id, orderKey }) => ({ id, orderKey }));
+    if (canonicalJson(restored) !== canonicalJson(beforeScope.tasks)) unavailable();
   }
   return {
     tasks: result,
