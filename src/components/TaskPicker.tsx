@@ -98,12 +98,9 @@ export function TaskPicker({
     [fetched, subject, mode],
   );
 
-  const duplicateTitles = useMemo(() => {
+  const titleCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const task of candidates) {
-      const title = task.title;
-      counts.set(title, (counts.get(title) ?? 0) + 1);
-    }
+    for (const task of candidates) counts.set(task.title, (counts.get(task.title) ?? 0) + 1);
     return counts;
   }, [candidates]);
 
@@ -114,18 +111,14 @@ export function TaskPicker({
   const showRemoveParent =
     mode === "move" && subject.parentId !== null && onRemoveParent !== undefined;
   const showRemoveBlocker =
-    mode === "blocker" && subject.dependencyIds.length > 0 && onRemoveBlocker;
-  const currentParent =
-    subject.parentId === null
-      ? null
-      : (fetched.find((task) => task.id === subject.parentId) ?? null);
-  const currentParentTitle = currentParent ? currentParent.title : null;
+    mode === "blocker" && subject.dependencyIds.length > 0 && onRemoveBlocker !== undefined;
+  const currentParentTitle = fetched.find((task) => task.id === subject.parentId)?.title ?? null;
   const blockers = useMemo(() => {
     if (!showRemoveBlocker) return [];
-    return subject.dependencyIds.map((id) => {
-      const blocker = fetched.find((task) => task.id === id) ?? null;
-      return { id, task: blocker, title: blocker ? blocker.title : null };
-    });
+    return subject.dependencyIds.map((id) => ({
+      id,
+      task: fetched.find((task) => task.id === id),
+    }));
   }, [showRemoveBlocker, subject.dependencyIds, fetched]);
 
   return (
@@ -173,20 +166,20 @@ export function TaskPicker({
               </CommandItem>
             </CommandGroup>
           ) : null}
-          {showRemoveBlocker && onRemoveBlocker ? (
+          {showRemoveBlocker ? (
             <CommandGroup>
               {blockers.map((blocker) => (
                 <CommandItem
                   key={`remove-${blocker.id}`}
-                  value={`Remove blocker ${blocker.title ?? ""} ${blocker.id}`}
-                  keywords={["remove", "unblock", "clear", blocker.title ?? ""]}
-                  onSelect={() => onRemoveBlocker(blocker.id)}
+                  value={`Remove blocker ${blocker.task?.title ?? ""} ${blocker.id}`}
+                  keywords={["remove", "unblock", "clear", blocker.task?.title ?? ""]}
+                  onSelect={() => onRemoveBlocker?.(blocker.id)}
                 >
                   <Link2Off aria-hidden="true" className="text-muted-foreground" />
                   {blocker.task ? <TaskStatusDisplay task={blocker.task} /> : null}
                   <span className="font-medium">Remove blocker</span>
-                  {blocker.title ? (
-                    <span className="truncate text-muted-foreground">{blocker.title}</span>
+                  {blocker.task?.title ? (
+                    <span className="truncate text-muted-foreground">{blocker.task.title}</span>
                   ) : null}
                 </CommandItem>
               ))}
@@ -194,12 +187,11 @@ export function TaskPicker({
           ) : null}
           <CommandGroup heading={groupHeading}>
             {candidates.map((task) => {
-              const displayTitle = task.title;
-              const variant = (duplicateTitles.get(displayTitle) ?? 0) > 1 ? "full" : "compact";
+              const variant = (titleCounts.get(task.title) ?? 0) > 1 ? "full" : "compact";
               return (
                 <CommandItem
                   key={task.id}
-                  value={`${displayTitle} ${task.id}`}
+                  value={`${task.title} ${task.id}`}
                   keywords={[task.description, task.status]}
                   onSelect={() => onSelect(task)}
                 >
