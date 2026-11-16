@@ -38,12 +38,10 @@ export function placementForMove(
 ): TaskMovePlacement | null {
   const scope = selectableSiblingRows(row, rows);
   const selectedIds = new Set(selected.map((candidate) => candidate.task.id));
-  const firstSelected = scope.findIndex((candidate) => selectedIds.has(candidate.task.id));
-  const lastSelected =
-    scope.length -
-    1 -
-    [...scope].reverse().findIndex((candidate) => selectedIds.has(candidate.task.id));
-  if (firstSelected < 0 || lastSelected < 0) return null;
+  const isSelected = (candidate: VisibleTaskRow) => selectedIds.has(candidate.task.id);
+  const firstSelected = scope.findIndex(isSelected);
+  if (firstSelected < 0) return null;
+  const lastSelected = scope.length - 1 - [...scope].reverse().findIndex(isSelected);
   if (direction === "start") {
     return firstSelected === 0 ? null : { beforeId: scope[0].task.id };
   }
@@ -51,17 +49,13 @@ export function placementForMove(
     return lastSelected === scope.length - 1 ? null : { afterId: scope[scope.length - 1].task.id };
   }
   if (direction === "up") {
-    if (firstSelected === 0) return null;
     const previous = scope
       .slice(0, firstSelected)
       .reverse()
-      .find((candidate) => !selectedIds.has(candidate.task.id));
+      .find((candidate) => !isSelected(candidate));
     return previous ? { beforeId: previous.task.id } : null;
   }
-  if (lastSelected === scope.length - 1) return null;
-  const next = scope
-    .slice(lastSelected + 1)
-    .find((candidate) => !selectedIds.has(candidate.task.id));
+  const next = scope.slice(lastSelected + 1).find((candidate) => !isSelected(candidate));
   return next ? { afterId: next.task.id } : null;
 }
 
