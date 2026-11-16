@@ -122,26 +122,18 @@ function readPriorityFilter(): TaskPriority | null {
   return stored !== null && /^[0-4]$/.test(stored) ? (Number(stored) as TaskPriority) : null;
 }
 
-function readCategorySlug(): string | null {
-  const stored = readPreference(CATEGORY_FILTER_KEY);
-  return stored !== null && stored !== "" ? stored : null;
-}
-
-function readInitialTagFilter(): ClassificationOption[] {
-  return readSlugs(TAG_FILTER_KEY).map((slug) => ({ slug, label: slug, taskCount: 0 }));
-}
-
 function readInitialCategoryFilter(): ClassificationToken | null {
-  const slug = readCategorySlug();
+  const slug = readPreference(CATEGORY_FILTER_KEY);
   return slug ? { slug, label: slug } : null;
 }
 
-function readSlugs(key: string): string[] {
-  const stored = readPreference(key);
+function readInitialTagFilter(): ClassificationOption[] {
+  const stored = readPreference(TAG_FILTER_KEY);
   if (!stored) return [];
   try {
     const value: unknown = JSON.parse(stored);
-    return Array.isArray(value) && value.every((entry) => typeof entry === "string") ? value : [];
+    if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) return [];
+    return value.map((slug) => ({ slug, label: slug, taskCount: 0 }));
   } catch {
     return [];
   }
