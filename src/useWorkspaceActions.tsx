@@ -128,7 +128,7 @@ export function useWorkspaceActions({
         idempotencyKey: randomUUID(),
       });
       updateVisibleTask(result.task);
-      if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
+      recordOperationUndo(result.operationId, [current], [result.task]);
       setAnnouncement(`${subjectTitle} is no longer blocked by ${blockerTitle}`);
     } catch (caught) {
       setAnnouncement(
@@ -155,7 +155,7 @@ export function useWorkspaceActions({
       const refreshManualOrder = result.changed !== false && sortFieldRef.current === "manual";
       if (refreshManualOrder) taskListRef.current?.startIdentityPreservingRefresh();
       updateVisibleTask(result.task);
-      if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
+      recordOperationUndo(result.operationId, [current], [result.task]);
       if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
       setAnnouncement(`${subjectTitle} is now a top-level task`);
     } catch (caught) {
@@ -188,7 +188,7 @@ export function useWorkspaceActions({
         mode === "move" && result.changed !== false && sortFieldRef.current === "manual";
       if (refreshManualOrder) taskListRef.current?.startIdentityPreservingRefresh();
       updateVisibleTask(result.task);
-      if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
+      recordOperationUndo(result.operationId, [current], [result.task]);
       if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
       const subjectTitle = current.title;
       const targetTitle = target.title;
@@ -220,16 +220,12 @@ export function useWorkspaceActions({
       return;
     }
     try {
-      const result =
-        current.status === "paused"
-          ? await transitionTask("task.start", current.id, current.version, {
-              idempotencyKey: randomUUID(),
-            })
-          : await transitionTask("task.pause", current.id, current.version, {
-              idempotencyKey: randomUUID(),
-            });
+      const operation = current.status === "paused" ? "task.start" : "task.pause";
+      const result = await transitionTask(operation, current.id, current.version, {
+        idempotencyKey: randomUUID(),
+      });
       updateVisibleTask(result.task);
-      if (result.operationId) recordOperationUndo(result.operationId, [current], [result.task]);
+      recordOperationUndo(result.operationId, [current], [result.task]);
       if (result.changed !== false) handleStatusChanged(current, result.task, wasActive);
       setAnnouncement(
         `${current.title}: ${result.task.status === "paused" ? "Paused" : "In progress"}`,
@@ -516,11 +512,9 @@ export function useWorkspaceActions({
       setTasks((previous) => previous.filter((existing) => existing.id !== task.id));
     }
     if (!creating) requestActiveTask(task.id);
-    if (result.operationId) {
-      recordOperationUndo(result.operationId, previous, [task], {
-        createdTaskIds: creating ? [task.id] : [],
-      });
-    }
+    recordOperationUndo(result.operationId, previous, [task], {
+      createdTaskIds: creating ? [task.id] : [],
+    });
     setAnnouncement(`${creating ? "Added" : "Saved"}: ${task.title}`);
     // Creating one task returns to the list instead of reopening capture.
     // The next task can still be started with C or the New task action.
