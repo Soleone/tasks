@@ -249,6 +249,10 @@ export function sortSummary(field: SortField, direction: SortDirection): string 
   return `by ${field}, ${direction}`;
 }
 
+function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /** Orders optimistic view updates until a fresh list query supplies authoritative order. */
 export function compareTasksForViewSort(
   a: TaskView,
@@ -260,21 +264,22 @@ export function compareTasksForViewSort(
   if (field === "due") {
     // Undated tasks stay last in either direction, as in the engine.
     if ((a.due === null) !== (b.due === null)) return a.due === null ? 1 : -1;
-    if (a.due !== b.due) return (a.due! < b.due! ? -1 : 1) * (direction === "desc" ? 1 : -1);
-    return a.priority - b.priority || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    return (
+      (direction === "desc" ? 1 : -1) * compareStrings(a.due ?? "", b.due ?? "") ||
+      a.priority - b.priority ||
+      compareStrings(a.id, b.id)
+    );
   }
   if (field === "effort") {
-    const effortDirection = direction === "desc" ? -1 : 1;
     return (
-      effortDirection * (a.effort - b.effort) ||
+      (direction === "desc" ? -1 : 1) * (a.effort - b.effort) ||
       a.priority - b.priority ||
-      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+      compareStrings(a.id, b.id)
     );
   }
   if (field === "priority") {
-    const priorityDirection = direction === "desc" ? 1 : -1;
     return (
-      priorityDirection * (a.priority - b.priority) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+      (direction === "desc" ? 1 : -1) * (a.priority - b.priority) || compareStrings(a.id, b.id)
     );
   }
   if (field === "closed" && (a.closedAt === null) !== (b.closedAt === null))
@@ -285,12 +290,8 @@ export function compareTasksForViewSort(
       : field === "closed"
         ? (task.closedAt ?? "")
         : task.updatedAt;
-  const keyA = sortKey(a);
-  const keyB = sortKey(b);
-  if (keyA !== keyB) {
-    const newerFirst = direction === "desc";
-    if (keyA > keyB) return newerFirst ? -1 : 1;
-    return newerFirst ? 1 : -1;
-  }
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  return (
+    (direction === "desc" ? -1 : 1) * compareStrings(sortKey(a), sortKey(b)) ||
+    compareStrings(a.id, b.id)
+  );
 }
