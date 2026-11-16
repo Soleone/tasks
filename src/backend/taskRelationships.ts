@@ -10,19 +10,20 @@ export const RELATIONSHIP_COMMANDS = [
   "task.dependency.add",
   "task.dependency.remove",
 ] as const;
+type RelationshipCommand = (typeof RELATIONSHIP_COMMANDS)[number];
 export type RelationshipInput = { id: string; expectedVersion: number } & (
   | { kind: "parent"; parentId: string | null }
   | { kind: "add" | "remove"; dependsOnId: string }
 );
 
 export function parseRelationship(
-  command: string,
+  command: RelationshipCommand,
   args: Record<string, unknown>,
 ): RelationshipInput {
-  const parent = command === "task.move";
-  assertArgs(args, ["id", "expectedVersion", parent ? "parentId" : "dependsOnId"]);
+  const isMove = command === "task.move";
+  assertArgs(args, ["id", "expectedVersion", isMove ? "parentId" : "dependsOnId"]);
   const reference = parseTaskVersion(args);
-  if (parent) {
+  if (isMove) {
     if (
       args.parentId !== null &&
       (typeof args.parentId !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.parentId))
@@ -33,8 +34,6 @@ export function parseRelationship(
       );
     return { ...reference, kind: "parent", parentId: args.parentId as string | null };
   }
-  if (!["task.dependency.add", "task.dependency.remove"].includes(command))
-    throw new CommandError("UNSUPPORTED_COMMAND", "relationship command is unavailable");
   if (typeof args.dependsOnId !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.dependsOnId))
     throw new CommandError("INVALID_ARGUMENT", "dependsOnId must be a safe task ID");
   return {
