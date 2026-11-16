@@ -299,7 +299,6 @@ export function readRootDescriptor(directory: string): { rootPath: string; rootI
 
 // Syncthing never syncs `.syncthing.*.tmp`, so a stage left by a crash stays on this device.
 export const INIT_STAGE = ".syncthing.taskdb-init.tmp";
-const transportMarkers = new Set([".stfolder", ".stignore", ".stversions"]);
 
 function notInitRoot(message: string): never {
   throw new CommandError("INVALID_CANONICAL", message);
@@ -312,20 +311,27 @@ function notInitRoot(message: string): never {
 export function assertInitRoot(rootPath: string): void {
   for (const name of readdirSync(rootPath)) {
     const stat = lstatSync(path.join(rootPath, name));
-    if (name === "tasks") {
-      if (!stat.isDirectory() || readdirSync(path.join(rootPath, name)).length !== 0)
-        notInitRoot("initialization refuses existing records or partial transfers");
-    } else if (name === INIT_STAGE) {
-      if (!stat.isFile()) notInitRoot("initialization found an unexpected stage");
-    } else if (
-      !transportMarkers.has(name) ||
-      stat.isSymbolicLink() ||
-      (name === ".stignore" ? !stat.isFile() : !stat.isDirectory() && !stat.isFile()) ||
-      (name === ".stversions" && !stat.isDirectory())
-    )
-      notInitRoot(
-        "initialization requires an uninitialized empty root, with only physical transport markers",
-      );
+    switch (name) {
+      case "tasks":
+        if (!stat.isDirectory() || readdirSync(path.join(rootPath, name)).length !== 0)
+          notInitRoot("initialization refuses existing records or partial transfers");
+        continue;
+      case INIT_STAGE:
+        if (!stat.isFile()) notInitRoot("initialization found an unexpected stage");
+        continue;
+      case ".stignore":
+        if (stat.isFile()) continue;
+        break;
+      case ".stversions":
+        if (stat.isDirectory()) continue;
+        break;
+      case ".stfolder":
+        if (stat.isDirectory() || stat.isFile()) continue;
+        break;
+    }
+    notInitRoot(
+      "initialization requires an uninitialized empty root, with only physical transport markers",
+    );
   }
 }
 
