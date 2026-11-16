@@ -35,8 +35,12 @@ function planResult(plan: DoctorPlan): Record<string, unknown> {
     applyAvailable: true,
   };
 }
-function lateDoctorLinks(database: DatabaseSync, context: string, links: DoctorLink[]) {
-  const late: (DoctorLink & { planId: string; taskId?: string })[] = [];
+function findUnreviewedIncomingLinks(
+  database: DatabaseSync,
+  context: string,
+  incomingLinks: DoctorLink[],
+) {
+  const unreviewed: (DoctorLink & { planId: string; taskId?: string })[] = [];
   for (const row of database
     .prepare(
       "SELECT after_record FROM v2_operations WHERE context = ? AND command = 'workspace.doctor.apply'",
@@ -52,7 +56,7 @@ function lateDoctorLinks(database: DatabaseSync, context: string, links: DoctorL
         !Array.isArray(review.reviewedIncoming)
       )
         throw new CommandError("RECOVERY_CONFLICT", "local doctor history requires inspection");
-      for (const link of links.filter((link) => link.fromId === review.originalId)) {
+      for (const link of incomingLinks.filter((link) => link.fromId === review.originalId)) {
         const record = link.record;
         if (
           "taskId" in record &&
@@ -61,7 +65,7 @@ function lateDoctorLinks(database: DatabaseSync, context: string, links: DoctorL
           )
         )
           continue;
-        late.push({
+        unreviewed.push({
           ...link,
           planId: after.planId,
           ...("taskId" in record ? { taskId: record.taskId } : {}),
@@ -69,7 +73,7 @@ function lateDoctorLinks(database: DatabaseSync, context: string, links: DoctorL
       }
     }
   }
-  return late;
+  return unreviewed;
 }
 export function executeDoctorInspect(request: Request, rootPath: string, cachePath: string) {
   assertArgs(request.args, []);
@@ -90,7 +94,7 @@ export function executeDoctorInspect(request: Request, rootPath: string, cachePa
         "STALE_WRITE_CONTEXT",
         "physical root changed during doctor inspection",
       );
-    const unreviewedIncomingLinks = lateDoctorLinks(
+    const unreviewedIncomingLinks = findUnreviewedIncomingLinks(
       database,
       authority.writeContext,
       source.incomingLinks,
