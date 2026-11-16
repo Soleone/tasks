@@ -2,7 +2,12 @@ import { useRef, type ReactElement } from "react";
 import { Check, Circle } from "lucide-react";
 import { cn } from "cn";
 import type { TaskStatus } from "@/backend/taskModel";
-import { EXACT_STATUS_META, taskStatusMeta, type StatusPreset } from "@/components/taskFilters";
+import {
+  EXACT_STATUS_META,
+  STATUS_PRESET_LABELS,
+  taskStatusMeta,
+  type StatusPreset,
+} from "@/components/taskFilters";
 import {
   CommandEmpty,
   CommandGroup,
@@ -12,6 +17,16 @@ import {
 } from "@/components/ui/command";
 import { literalWordScore } from "@/components/commandFilter";
 import { Command, PaletteDialog } from "@/components/variants/command";
+
+const PRESETS: Array<{ preset: StatusPreset; hint: string; keywords: string }> = [
+  { preset: "active", hint: "Open, in progress", keywords: "f s active open in progress toggle" },
+  {
+    preset: "inactive",
+    hint: "Paused, done, canceled",
+    keywords: "f s inactive paused done canceled toggle",
+  },
+  { preset: "all", hint: "Every status", keywords: "f a all every status" },
+];
 
 export function StatusMenu({
   open,
@@ -46,47 +61,26 @@ export function StatusMenu({
         <CommandList label="Status results">
           <CommandEmpty>No matching status.</CommandEmpty>
           <CommandGroup heading="Presets">
-            <CommandItem
-              value="Preset Active"
-              keywords={["f s active open in progress toggle"]}
-              onSelect={() => onSelect("active", null)}
-            >
-              <Circle aria-hidden="true" />
-              <span className="font-medium">Active</span>
-              <span className="text-muted-foreground">Open, in progress</span>
-              {exactStatus === null && preset === "active" ? (
-                <Check aria-hidden="true" className="ml-auto" />
-              ) : null}
-            </CommandItem>
-            <CommandItem
-              value="Preset Inactive"
-              keywords={["f s inactive paused done canceled toggle"]}
-              onSelect={() => onSelect("inactive", null)}
-            >
-              <Circle aria-hidden="true" />
-              <span className="font-medium">Inactive</span>
-              <span className="text-muted-foreground">Paused, done, canceled</span>
-              {exactStatus === null && preset === "inactive" ? (
-                <Check aria-hidden="true" className="ml-auto" />
-              ) : null}
-            </CommandItem>
-            <CommandItem
-              value="Preset All"
-              keywords={["f a all every status"]}
-              onSelect={() => onSelect("all", null)}
-            >
-              <Circle aria-hidden="true" />
-              <span className="font-medium">All</span>
-              <span className="text-muted-foreground">Every status</span>
-              {exactStatus === null && preset === "all" ? (
-                <Check aria-hidden="true" className="ml-auto" />
-              ) : null}
-            </CommandItem>
+            {PRESETS.map(({ preset: option, hint, keywords }) => (
+              <CommandItem
+                key={option}
+                value={`Preset ${STATUS_PRESET_LABELS[option]}`}
+                keywords={[keywords]}
+                onSelect={() => onSelect(option, null)}
+              >
+                <Circle aria-hidden="true" />
+                <span className="font-medium">{STATUS_PRESET_LABELS[option]}</span>
+                <span className="text-muted-foreground">{hint}</span>
+                {exactStatus === null && preset === option ? (
+                  <Check aria-hidden="true" className="ml-auto" />
+                ) : null}
+              </CommandItem>
+            ))}
           </CommandGroup>
           <CommandGroup heading="Exact status">
             {EXACT_STATUS_META.map((entry) => {
-              const status = taskStatusMeta[entry.status];
-              const StatusIcon = status.Icon;
+              const meta = taskStatusMeta[entry.status];
+              const StatusIcon = meta.Icon;
               return (
                 <CommandItem
                   key={entry.status}
@@ -97,7 +91,7 @@ export function StatusMenu({
                   <span
                     className={cn(
                       "inline-flex size-4 shrink-0 items-center justify-center",
-                      status.color,
+                      meta.color,
                     )}
                   >
                     <StatusIcon aria-hidden="true" />
