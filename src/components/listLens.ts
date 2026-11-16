@@ -76,7 +76,7 @@ export function lensFilter(lens: ListLens, now = new Date()): LensFilter {
 const DONE_WINDOWS: DoneWindow[] = ["day", "yesterday", "week", "month"];
 
 /** The next window Shift+D shows, wrapping from month back to day, or the previous one going backward. */
-export function widerDoneWindow(doneWindow: DoneWindow, backward = false): DoneWindow {
+export function nextDoneWindow(doneWindow: DoneWindow, backward = false): DoneWindow {
   const step = backward ? DONE_WINDOWS.length - 1 : 1;
   return DONE_WINDOWS[(DONE_WINDOWS.indexOf(doneWindow) + step) % DONE_WINDOWS.length];
 }

@@ -29,7 +29,7 @@ import type { ClassificationOption, TaskView } from "@/components/taskView";
 import {
   agentChangeNote,
   lensPhrase,
-  widerDoneWindow,
+  nextDoneWindow,
   type GoalLens,
   type ListLens,
 } from "@/components/listLens";
@@ -672,7 +672,7 @@ export default function App({
     }
     const next: ListLens = {
       kind: "done",
-      window: widerDoneWindow(openLens.lens.window, backward),
+      window: nextDoneWindow(openLens.lens.window, backward),
     };
     setHelpOpen(false);
     setOpenLens({ ...openLens, lens: next });
