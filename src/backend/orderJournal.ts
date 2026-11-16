@@ -37,6 +37,9 @@ function stagePath(intent: OrderIntent, index: number): string {
     `.syncthing.taskdb-order-${intent.operationId}-${index}.tmp`,
   );
 }
+function assertStageHolds(temporary: string, next: Buffer): void {
+  if (!readRegularFile(temporary).equals(next)) conflict();
+}
 
 export function orderIntentPlan(intent: OrderIntent): OrderPlan {
   return planOrder(
@@ -132,16 +135,12 @@ export function guardOrder(intent: OrderIntent, recovery: boolean): CanonicalSna
       fail("STALE_SCOPE");
     const replacements = new Map(intent.files.map((file) => [`tasks/${file.taskId}.json`, file]));
     for (const guard of intent.guards) {
+      const current = actual.get(guard.relativePath);
+      if (current === guard.sha256) continue;
       const file = replacements.get(guard.relativePath);
-      if (
-        actual.get(guard.relativePath) !== guard.sha256 &&
-        !(
-          recovery &&
-          file &&
-          actual.get(guard.relativePath) === exactHash(Buffer.from(file.nextBytes, "base64"))
-        )
-      )
-        fail("STALE_FILE");
+      const alreadyReplaced =
+        recovery && file && current === exactHash(Buffer.from(file.nextBytes, "base64"));
+      if (!alreadyReplaced) fail("STALE_FILE");
     }
     const plan = orderIntentPlan(intent);
     const scope = snapshot.tasks.filter((task) => task.parentId === plan.parentId);
@@ -153,11 +152,7 @@ export function guardOrder(intent: OrderIntent, recovery: boolean): CanonicalSna
     for (const [index, task] of plan.writes.entries()) {
       const temporary = stagePath(intent, index);
       const file = intent.files.find((file) => file.taskId === task.id)!;
-      if (
-        existsSync(temporary) &&
-        !readRegularFile(temporary).equals(Buffer.from(file.nextBytes, "base64"))
-      )
-        conflict();
+      if (existsSync(temporary)) assertStageHolds(temporary, Buffer.from(file.nextBytes, "base64"));
     }
     return snapshot;
   } catch (error) {
@@ -183,9 +178,8 @@ export function applyOrderJournal(
     const target = path.join(intent.root.rootPath, "tasks", `${task.id}.json`);
     const temporary = stagePath(intent, index);
     const next = Buffer.from(file.nextBytes, "base64");
-    if (existsSync(temporary)) {
-      if (!readRegularFile(temporary).equals(next)) conflict();
-    } else writeDurableFile(temporary, next);
+    if (existsSync(temporary)) assertStageHolds(temporary, next);
+    else writeDurableFile(temporary, next);
     snapshot = guardOrder(intent, true);
     renameSync(temporary, target);
     syncDirectory(path.dirname(target));
@@ -205,7 +199,7 @@ export function retireOrderStages(intent: OrderIntent): void {
     const temporary = stagePath(intent, index);
     if (!existsSync(temporary)) continue;
     const file = intent.files.find((file) => file.taskId === task.id)!;
-    if (!readRegularFile(temporary).equals(Buffer.from(file.nextBytes, "base64"))) conflict();
+    assertStageHolds(temporary, Buffer.from(file.nextBytes, "base64"));
     unlinkSync(temporary);
     syncDirectory(path.dirname(temporary));
   }
