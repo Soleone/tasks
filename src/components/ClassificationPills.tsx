@@ -63,8 +63,8 @@ function withLeaving(pills: Pill[], leaving: LeavingPill[]): (Pill | LeavingPill
   return shown;
 }
 
-const exitsPlay = (): boolean =>
-  // jsdom has no Web Animations; there a removed pill simply goes.
+const pillsAnimate = (): boolean =>
+  // jsdom has no Web Animations; there pills simply appear and go.
   typeof HTMLElement.prototype.animate === "function" &&
   !matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -163,7 +163,7 @@ export function ClassificationPills({
       const pill = "pill" in shown ? shown.pill : shown;
       if (kept.has(pillKey(pill.marker, pill.slug))) return [];
       if ("pill" in shown) return [{ ...shown, index }];
-      return exitsPlay() ? [{ id: nextLeavingId++, pill, index }] : [];
+      return pillsAnimate() ? [{ id: nextLeavingId++, pill, index }] : [];
     });
     setExits({ signature, pills, leaving });
   }
@@ -202,9 +202,7 @@ export function ClassificationPills({
     const pill = row.current?.querySelector<HTMLElement>(
       `[data-pill="${pillKey(landing.marker, landing.slug)}"]`,
     );
-    // jsdom has no Web Animations; there the pill simply appears.
-    if (!pill || typeof pill.animate !== "function") return;
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!pill || !pillsAnimate()) return;
     const badge =
       "at" in landing ? null : document.querySelector<HTMLElement>("[data-filter-category]");
     const badgeBox = badge?.getBoundingClientRect();
