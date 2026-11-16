@@ -157,10 +157,9 @@ async function handleRequest(
     return;
   }
 
-  const corsHeaders: Record<string, string> =
-    origin !== undefined ? { "access-control-allow-origin": origin, vary: "Origin" } : {};
-  for (const [name, value] of Object.entries(corsHeaders)) {
-    response.setHeader(name, value);
+  if (origin !== undefined) {
+    response.setHeader("access-control-allow-origin", origin);
+    response.setHeader("vary", "Origin");
   }
 
   if (request.method === "OPTIONS") {
