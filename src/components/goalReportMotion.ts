@@ -78,10 +78,8 @@ type FlightLook = {
 };
 
 /** A day's dot color: the theme's green, faint for a day that got only part of the way. */
-const dotColor = (cell: HTMLElement): string =>
-  cell.dataset.met !== undefined
-    ? "var(--success)"
-    : "color-mix(in oklab, var(--success) 40%, var(--muted))";
+const dotColor = (met: boolean): string =>
+  met ? "var(--success)" : "color-mix(in oklab, var(--success) 40%, var(--muted))";
 
 const cellOf = (root: HTMLElement, day: string): HTMLElement | null =>
   root.querySelector<HTMLElement>(`[data-day="${day}"]`);
@@ -113,7 +111,7 @@ function ripple(root: HTMLElement, origins: HTMLElement[], base: number, year: b
 }
 
 /** The streak thread draws itself backward from today, one link at a time. */
-function threads(root: HTMLElement, base: number): number {
+function threads(root: HTMLElement, base: number): void {
   const links = [...root.querySelectorAll<HTMLElement>("[data-thread]")].sort((a, b) =>
     b.dataset.thread!.localeCompare(a.dataset.thread!),
   );
@@ -125,7 +123,6 @@ function threads(root: HTMLElement, base: number): number {
       fill: "backwards",
     }),
   );
-  return base + links.length * 55 + 220;
 }
 
 /** The stats count up from zero. */
@@ -176,7 +173,7 @@ export function playOpening(
       if (!cell) return;
       targets.push(cell);
       landed = fly(from, cell.getBoundingClientRect(), {
-        color: dotColor(cell),
+        color: dotColor(cell.dataset.met !== undefined),
         size: 9,
         delay: index * 45,
         arc: 36,
@@ -324,7 +321,7 @@ export function flyDayToLens(from: DOMRect, met: boolean): void {
     if (!count) return;
     const to = count.getBoundingClientRect();
     const landed = fly(from, to, {
-      color: met ? "var(--success)" : "color-mix(in oklab, var(--success) 40%, var(--muted))",
+      color: dotColor(met),
       size: 26,
       duration: 520,
       arc: 28,
@@ -345,7 +342,7 @@ export function flyWeekHome(days: ReadonlyMap<string, { box: DOMRect; met: boole
       const dot = document.querySelector<HTMLElement>(`[data-week-dot="${day}"]`);
       if (!dot) continue;
       const landed = fly(box, dot.getBoundingClientRect(), {
-        color: met ? "var(--success)" : "color-mix(in oklab, var(--success) 40%, var(--muted))",
+        color: dotColor(met),
         size: Math.min(box.width, box.height) * 0.5,
         duration: 520,
         delay: index * 40,
