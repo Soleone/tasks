@@ -179,16 +179,18 @@ function stepPriority(
   step: number,
   actions: HomeShortcutActions,
 ): void {
+  if (!task) return;
   // Raising priority makes the number smaller.
-  const priority = task ? task.priority + step : -1;
-  if (!task || priority < 0 || priority > 4) return;
+  const priority = task.priority + step;
+  if (priority < 0 || priority > 4) return;
   practice("priority.set", "keys", `P${priority}`);
   void actions.setPriority(task, priority as TaskPriority);
 }
 
 function stepEffort(task: TaskView | undefined, step: number, actions: HomeShortcutActions): void {
-  const effort = task ? task.effort + step : 0;
-  if (!task || !isEffort(effort)) return;
+  if (!task) return;
+  const effort = task.effort + step;
+  if (!isEffort(effort)) return;
   practice("effort.set", "keys", EFFORT_LABELS[effort]);
   void actions.setEffort(task, effort);
 }
