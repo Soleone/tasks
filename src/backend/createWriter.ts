@@ -9,6 +9,7 @@ import {
   readRegularFile,
   readRootDescriptor,
   exactHash,
+  compareSnapshotTasks,
 } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
 import { directoryIdentity, refuseDescriptorConflicts } from "./rootGuards.js";
@@ -20,7 +21,7 @@ import { projectTasks } from "./queries.js";
 import type { Request } from "./protocol.js";
 import { requireVersionBudget, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
-import { compareTasks } from "./taskModel.js";
+import type { CanonicalTask } from "./taskModel.js";
 
 function requireCreateBudget(database: DatabaseSync, taskCount: number): number {
   const counter = requireVersionBudget(
@@ -49,10 +50,11 @@ function guardCreateDestination(
   }
   if (parentId !== null) {
     const parentPath = `tasks/${parentId}.json`;
+    const parentFile = path.join(root.rootPath, parentPath);
     const expected = snapshot.files.find((file) => file.relativePath === parentPath)!;
     if (
-      !lstatSync(path.join(root.rootPath, parentPath), { throwIfNoEntry: false }) ||
-      exactHash(readRegularFile(path.join(root.rootPath, parentPath))) !== expected.sha256
+      !lstatSync(parentFile, { throwIfNoEntry: false }) ||
+      exactHash(readRegularFile(parentFile)) !== expected.sha256
     ) {
       throw new CommandError("STALE_FILE", "selected capture parent changed");
     }
@@ -60,6 +62,24 @@ function guardCreateDestination(
   if (readdirSync(taskDirectory).some((name) => name.split(".")[0].toLowerCase() === taskId)) {
     throw new CommandError("STALE_SCOPE", "capture destination already exists");
   }
+}
+
+function withPublishedTask(
+  snapshot: CanonicalSnapshot,
+  task: CanonicalTask,
+  sha256: string,
+): CanonicalSnapshot {
+  const [manifest, ...taskFiles] = snapshot.files;
+  return {
+    ...snapshot,
+    tasks: [...snapshot.tasks, task].sort(compareSnapshotTasks),
+    files: [
+      manifest,
+      ...[...taskFiles, { relativePath: `tasks/${task.id}.json`, sha256 }].sort((left, right) =>
+        left.relativePath < right.relativePath ? -1 : 1,
+      ),
+    ],
+  };
 }
 
 export function executeCreate(request: Request, rootPath: string, cachePath: string) {
@@ -124,25 +144,7 @@ export function executeCreate(request: Request, rootPath: string, cachePath: str
       // Interrupted stages stay orphaned; publication before SQLite commit can duplicate on retry.
       renameSync(stage, target);
       syncDirectory(taskDirectory);
-      const published = {
-        ...snapshot,
-        tasks: [...snapshot.tasks, task].sort((left, right) => {
-          const leftParent = left.parentId ?? "",
-            rightParent = right.parentId ?? "";
-          return leftParent === rightParent
-            ? compareTasks(left, right)
-            : leftParent < rightParent
-              ? -1
-              : 1;
-        }),
-        files: [
-          snapshot.files[0],
-          ...[
-            ...snapshot.files.slice(1),
-            { relativePath: `tasks/${taskId}.json`, sha256: exactHash(bytes) },
-          ].sort((left, right) => (left.relativePath < right.relativePath ? -1 : 1)),
-        ],
-      };
+      const published = withPublishedTask(snapshot, task, exactHash(bytes));
       authority = synchronizeAuthority(database, root, published);
       const result = {
         task: projectTasks(published.tasks, authority).find((task) => task.id === taskId)!,
