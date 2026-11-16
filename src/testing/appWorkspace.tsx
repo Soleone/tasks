@@ -152,35 +152,32 @@ export class AppWorkspace {
 
   /** Delivers a fixture task file into the sync folder, as Syncthing would from another device. */
   async arrive(name: string): Promise<void> {
-    const response = await fetch(
-      `${inject("workspaceServerUrl")}/arrive?url=${encodeURIComponent(this.url)}&name=${encodeURIComponent(name)}`,
-    );
-    if (!response.ok) throw new Error(await response.text());
+    await this.bridge("arrive", { name });
   }
 
   /** Leaves a conflict copy of a task with `patch` applied, as Syncthing does after two devices changed it. */
   async conflict(id: string, patch: Record<string, unknown>): Promise<void> {
-    const response = await fetch(
-      `${inject("workspaceServerUrl")}/conflict?url=${encodeURIComponent(this.url)}&id=${encodeURIComponent(id)}`,
-      { method: "POST", body: JSON.stringify(patch) },
-    );
-    if (!response.ok) throw new Error(await response.text());
+    await this.bridge("conflict", { id }, { method: "POST", body: JSON.stringify(patch) });
   }
 
   /** Removes an image file from the sync folder, as when it was removed on another device. */
   async loseImage(name: string): Promise<void> {
-    const response = await fetch(
-      `${inject("workspaceServerUrl")}/lose-image?url=${encodeURIComponent(this.url)}&name=${encodeURIComponent(name)}`,
-    );
-    if (!response.ok) throw new Error(await response.text());
+    await this.bridge("lose-image", { name });
   }
 
   /** Drops a theme file into the home's `themes/` folder, as the owner would. */
   async dropTheme(name: string, text: string): Promise<void> {
-    const response = await fetch(
-      `${inject("workspaceServerUrl")}/theme?url=${encodeURIComponent(this.url)}&name=${encodeURIComponent(name)}`,
-      { method: "POST", body: JSON.stringify(text) },
-    );
+    await this.bridge("theme", { name }, { method: "POST", body: JSON.stringify(text) });
+  }
+
+  /** Calls one of the dev bridge's own endpoints for this workspace. */
+  private async bridge(
+    endpoint: string,
+    params: Record<string, string>,
+    init?: RequestInit,
+  ): Promise<void> {
+    const query = new URLSearchParams({ url: this.url, ...params });
+    const response = await fetch(`${inject("workspaceServerUrl")}/${endpoint}?${query}`, init);
     if (!response.ok) throw new Error(await response.text());
   }
 
