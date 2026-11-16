@@ -75,7 +75,7 @@
     "jsdom": "^30.1.2",
     "knip": "^6.41.0",
     "postject": "^1.0.0-alpha.6",
-    "release-it": "^21.1.1",
+    "release-it": "^21.1.2",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "catalog:",
