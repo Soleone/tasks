@@ -81,6 +81,17 @@ const ORDER_LABELS: Record<Exclude<SortField, "manual">, [string, string]> = {
   closed: ["Recently done first", "Earliest done first"],
 };
 
+const REORDER_ACTIONS: { direction: TaskMoveDirection; label: string; icon: ReactNode }[] = [
+  { direction: "up", label: "Move up", icon: <ArrowUp aria-hidden="true" /> },
+  { direction: "down", label: "Move down", icon: <ArrowDown aria-hidden="true" /> },
+  {
+    direction: "start",
+    label: "Move to beginning",
+    icon: <ChevronDown aria-hidden="true" className="rotate-180" />,
+  },
+  { direction: "end", label: "Move to end", icon: <ChevronDown aria-hidden="true" /> },
+];
+
 type FilterSummaryFilter = "status" | "category" | "priority" | "tags" | "search" | "unblocked";
 type FilterSummaryPart = {
   filter: Exclude<FilterSummaryFilter, "status" | "category">;
@@ -740,90 +751,29 @@ export function TaskListToolbar({
                     aria-controls="task-list"
                     className="flex items-center gap-1"
                   >
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            tabIndex={-1}
-                            aria-label="Move up"
-                            aria-disabled={reorderAvailabilityReason !== null || undefined}
-                            data-reorder-action="up"
-                            onMouseDown={preventFocusSteal}
-                            onClick={() => void reorderSelection("up")}
-                          />
-                        }
-                      >
-                        <ArrowUp aria-hidden="true" />
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" sideOffset={8}>
-                        {reorderAvailabilityReason ?? "Move up"}
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            tabIndex={-1}
-                            aria-label="Move down"
-                            aria-disabled={reorderAvailabilityReason !== null || undefined}
-                            data-reorder-action="down"
-                            onMouseDown={preventFocusSteal}
-                            onClick={() => void reorderSelection("down")}
-                          />
-                        }
-                      >
-                        <ArrowDown aria-hidden="true" />
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" sideOffset={8}>
-                        {reorderAvailabilityReason ?? "Move down"}
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            tabIndex={-1}
-                            aria-label="Move to beginning"
-                            aria-disabled={reorderAvailabilityReason !== null || undefined}
-                            data-reorder-action="start"
-                            onMouseDown={preventFocusSteal}
-                            onClick={() => void reorderSelection("start")}
-                          />
-                        }
-                      >
-                        <ChevronDown aria-hidden="true" className="rotate-180" />
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" sideOffset={8}>
-                        {reorderAvailabilityReason ?? "Move to beginning"}
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            tabIndex={-1}
-                            aria-label="Move to end"
-                            aria-disabled={reorderAvailabilityReason !== null || undefined}
-                            data-reorder-action="end"
-                            onMouseDown={preventFocusSteal}
-                            onClick={() => void reorderSelection("end")}
-                          />
-                        }
-                      >
-                        <ChevronDown aria-hidden="true" />
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" sideOffset={8}>
-                        {reorderAvailabilityReason ?? "Move to end"}
-                      </TooltipContent>
-                    </Tooltip>
+                    {REORDER_ACTIONS.map(({ direction, label, icon }) => (
+                      <Tooltip key={direction}>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              tabIndex={-1}
+                              aria-label={label}
+                              aria-disabled={reorderAvailabilityReason !== null || undefined}
+                              data-reorder-action={direction}
+                              onMouseDown={preventFocusSteal}
+                              onClick={() => void reorderSelection(direction)}
+                            />
+                          }
+                        >
+                          {icon}
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" sideOffset={8}>
+                          {reorderAvailabilityReason ?? label}
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
                   </div>
                 </CompactPopoverContent>
               </Popover>
