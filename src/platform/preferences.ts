@@ -24,6 +24,7 @@ const PREFERENCE_KEYS = new Set([
   "tasks.globalHotkeyCreate",
   "tasks.agentChangesSeen",
   "tasks.keys",
+  "tasks.goal-report.closed-day",
 ]);
 // Earlier versions kept these; they are dropped on load so those settings still open.
 const RETIRED_KEYS = new Set(["tasks.helpMode"]);
@@ -55,6 +56,8 @@ export function readPreference(key: string): string | null {
 
 /** Takes effect now; the home's copy is saved in the background, newest value first. */
 export function writePreference(key: string, value: string): void {
+  // A key missing from the list would save fine and then lock the home out on the next start.
+  if (!PREFERENCE_KEYS.has(key)) throw new Error(`${key} isn't listed in PREFERENCE_KEYS.`);
   try {
     // The browser copy lets the theme and font size apply before the home answers.
     browserStorage()?.setItem(key, value);

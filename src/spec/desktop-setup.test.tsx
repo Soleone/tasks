@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vite-plus/test";
 import { themeOptions } from "virtual:theme-options";
 import { ThemeProvider } from "@/components/soleone/theme";
+import { version } from "../../package.json";
 import DesktopWorkspace from "@/DesktopWorkspace";
 import { THEME_STORAGE_KEY } from "@/theme/config";
 
@@ -18,6 +19,13 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
     pickedFolder.defaultPath = options.defaultPath ?? "";
     return pickedFolder.path;
   },
+}));
+
+const release = vi.hoisted(() => ({ update: null as null | { version: string } }));
+vi.mock("@tauri-apps/plugin-updater", () => ({ check: async () => release.update }));
+vi.mock("@/platform/runtime", async (original) => ({
+  ...(await original<typeof import("@/platform/runtime")>()),
+  isDesktopApp: () => true,
 }));
 
 function renderSetup() {
@@ -49,5 +57,16 @@ describe("desktop setup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Browse…" }));
     await vi.waitFor(() => expect(input).toHaveProperty("value", "/data/Tasks"));
     expect(screen.getByText("/data/Tasks/sync")).toBeTruthy();
+  });
+
+  test("platform.update: setup shows the version and offers a newer release", async () => {
+    vi.stubEnv("DEV", false);
+    release.update = { version: "9.9.9" };
+    renderSetup();
+    expect(await screen.findByText("Tasks 9.9.9 is available")).toBeTruthy();
+    expect(screen.getByText(`Tasks ${version}`)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Update" })).toBeTruthy();
+    release.update = null;
+    vi.unstubAllEnvs();
   });
 });

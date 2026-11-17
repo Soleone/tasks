@@ -6,9 +6,11 @@ import {
   type FormEvent,
   type ReactElement,
 } from "react";
+import { version } from "../package.json";
 import App from "./App";
 import { APP_NAME } from "./backend/branding";
 import { useTheme } from "./components/soleone/theme";
+import { TaskToaster } from "./components/TaskToaster";
 import { Alert, AlertDescription, AlertTitle } from "./components/ui/alert";
 import { Button } from "./components/variants/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "./components/ui/field";
@@ -31,6 +33,7 @@ import type { MainWorkspace } from "./platform/mainWorkspace";
 import { DamagedSettingsError, readPreference } from "./platform/preferences";
 import { WorkspaceReader } from "./platform/workspaceReader";
 import { THEME_STORAGE_KEY } from "./theme/config";
+import { useAppUpdate } from "./useAppUpdate";
 
 // Read once per page load, so React's development double effects can't consume it.
 const homeChoiceRequested = takeHomeChoice();
@@ -122,6 +125,12 @@ async function openHome(
     await setup.close();
     throw reason;
   }
+}
+
+/** Setup has no list, so it brings its own toaster for the update offer. */
+function UpdateOffer(): ReactElement {
+  useAppUpdate();
+  return <TaskToaster />;
 }
 
 /** The app opens the remembered Tasks home. On first launch it asks for one. */
@@ -296,6 +305,10 @@ export default function DesktopWorkspace(): ReactElement | null {
           )}
         </div>
       </form>
+      <p className="mt-auto text-xs text-muted-foreground">
+        {APP_NAME} {version}
+      </p>
+      <UpdateOffer />
     </main>
   );
 }

@@ -1,6 +1,6 @@
 import { cleanup, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test } from "vite-plus/test";
-import { readPreference } from "@/platform/preferences";
+import { readPreference, writePreference } from "@/platform/preferences";
 import { AppWorkspace } from "@/testing/appWorkspace";
 
 // One file per home: preferences belong to the home the app loaded last.
@@ -45,6 +45,19 @@ test("platform.prefs-scope: preferences live in the home and survive cleared bro
   expect(screen.queryByText("Notes A")).not.toBeNull();
   // The browser keeps a copy only so the next start paints the right theme and font size.
   expect(localStorage.getItem("tasks.showDetails")).toBe("true");
+});
+
+test("platform.prefs-scope: the goal report's closed day saves and the home still opens", async () => {
+  await workspace.create("Task");
+  await workspace.render({ home: true });
+  writePreference("tasks.goal-report.closed-day", "2026-11-17");
+  await waitFor(async () =>
+    expect((await savedPreferences())["tasks.goal-report.closed-day"]).toBe("2026-11-17"),
+  );
+
+  cleanup();
+  await workspace.render({ home: true });
+  expect(readPreference("tasks.goal-report.closed-day")).toBe("2026-11-17");
 });
 
 test("learn.practice: a learned move is kept in the home and still checked after a reload", async () => {
