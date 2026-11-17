@@ -80,8 +80,7 @@ export function visibleTaskRows(
       descendants: [],
       rootIndex: rootOrder.get(rootId) ?? index,
     };
-    if (task.id === rootId) group.root = task;
-    else group.descendants.push(task);
+    if (task.id !== rootId) group.descendants.push(task);
     groups.set(rootId, group);
   });
 
@@ -119,7 +118,7 @@ export function rootRowRuns(
 ): Array<Array<{ row: VisibleTaskRow; index: number }>> {
   const runs: Array<Array<{ row: VisibleTaskRow; index: number }>> = [];
   rows.forEach((row, index) => {
-    if (row.depth === 0 || runs.length === 0) runs.push([]);
+    if (row.depth === 0) runs.push([]);
     runs[runs.length - 1].push({ row, index });
   });
   return runs;
