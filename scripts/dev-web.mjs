@@ -10,21 +10,20 @@ const { viteArgs } = options;
 const root = path.resolve(import.meta.dirname, "..");
 let backendArgs = options.backendArgs;
 let viteEnv = process.env;
-let copy;
+let copyHome;
 if (options.real) {
-  copy = await realSnapshot(options.refresh);
+  copyHome = (await realSnapshot(options.refresh)).home;
 } else if (backendArgs.length === 0) {
   // Without a selection, run on a fresh copy of the fixture so the real workspace is never opened.
-  const home = mkdtempSync(path.join(tmpdir(), "tasks-dev-"));
-  cpSync(path.join(root, "scripts/fixtures/workspace/root"), path.join(home, "sync"), {
+  copyHome = mkdtempSync(path.join(tmpdir(), "tasks-dev-"));
+  cpSync(path.join(root, "scripts/fixtures/workspace/root"), path.join(copyHome, "sync"), {
     recursive: true,
   });
-  mkdirSync(path.join(home, "local"));
-  copy = { home };
-  process.stdout.write(`[dev:web] disposable Tasks home in ${home}\n`);
+  mkdirSync(path.join(copyHome, "local"));
+  process.stdout.write(`[dev:web] disposable Tasks home in ${copyHome}\n`);
 }
-if (copy) {
-  backendArgs = ["--home", copy.home];
+if (copyHome) {
+  backendArgs = ["--home", copyHome];
   // The UI asks before opening a folder picked by hand; copies made here open directly.
   viteEnv = { ...process.env, VITE_DEV_WORKSPACE_COPY: "1" };
 }
