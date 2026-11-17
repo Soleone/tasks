@@ -46,11 +46,7 @@ function browserStorage(): Storage | null {
 
 export function readPreference(key: string): string | null {
   if (home) return home.values.get(key) ?? null;
-  try {
-    return browserStorage()?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
+  return browserStorage()?.getItem(key) ?? null;
 }
 
 /** Takes effect now; the home's copy is saved in the background, newest value first. */
@@ -133,10 +129,7 @@ function adopt(documents: HomeDocuments, values: Map<string, string>): void {
  */
 export async function loadPreferences(documents: HomeDocuments): Promise<void> {
   const text = await documents.read("settings");
-  if (text !== null) {
-    adopt(documents, parseSettings(text));
-    return;
-  }
+  if (text !== null) return adopt(documents, parseSettings(text));
   const values = browserPreferences();
   adopt(documents, values);
   await documents.save("settings", serialize(values));
