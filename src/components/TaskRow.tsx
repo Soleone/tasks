@@ -512,7 +512,7 @@ function TaskRowTrailing({
         render={<span data-task-due className="flex" />}
       >
         <span className="sr-only">Due </span>
-        <DueFact label={dueLabel} now={dueNow(task, today)} />
+        <DueFact label={dueLabel} now={daysBetween(today, task.due) <= 0} />
       </Hinted>
     </TaskItemTrailing>
   );
@@ -547,12 +547,6 @@ function taskBlocker(task: TaskView, blockedByLabels?: string[]): ReactElement |
 function rowDueLabel(task: TaskView, today: string): string | null {
   const closed = task.status === "done" || task.status === "canceled";
   return task.due === null || closed ? null : dueSoonLabel(task.due, today);
-}
-
-/** Whether an open task is due today or already late. */
-function dueNow(task: TaskView, today: string): boolean {
-  const closed = task.status === "done" || task.status === "canceled";
-  return task.due !== null && !closed && daysBetween(today, task.due) <= 0;
 }
 
 /**
