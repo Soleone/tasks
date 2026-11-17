@@ -43,10 +43,7 @@ export function KeyboardBar({
     onMoveCursor(direction);
     repeatTimer.current = setTimeout(() => repeatMove(direction), 60);
   }
-  useEffect(() => {
-    if (disabled) stopRepeat();
-    return stopRepeat;
-  }, [disabled]);
+  useEffect(() => stopRepeat, [disabled]);
 
   const keys = [
     {
