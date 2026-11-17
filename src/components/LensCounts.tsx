@@ -45,14 +45,15 @@ function LensCount({
   children: ReactNode;
 }): ReactElement | null {
   // The lens keeps its way back, even after the count falls to zero.
-  if (total === 0 && !lensOn && !holdPlace && !alwaysShown) return null;
+  const hidden = total === 0 && !lensOn && !alwaysShown;
+  if (hidden && !holdPlace) return null;
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <ToggleButton
             variant="ghost"
-            className={total === 0 && !lensOn && !alwaysShown ? "invisible" : undefined}
+            className={hidden ? "invisible" : undefined}
             selected={lensOn}
             aria-pressed={lensOn}
             tabIndex={-1}
