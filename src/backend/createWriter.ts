@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { lstatSync, readdirSync, renameSync } from "node:fs";
 import path from "node:path";
-import type { DatabaseSync } from "node:sqlite";
 import { CommandError } from "./errors.js";
 import {
   readCanonicalRoot,
@@ -22,16 +21,6 @@ import type { Request } from "./protocol.js";
 import { requireVersionBudget, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 import { findReceipt, requireWriteContext, storeReceipt } from "./receipts.js";
 import type { CanonicalTask } from "./taskModel.js";
-
-function requireCreateBudget(database: DatabaseSync, taskCount: number): number {
-  const counter = requireVersionBudget(
-    database,
-    taskCount * 3 + 7,
-    3,
-    "explicit fresh-cache authority is required before capture",
-  );
-  return counter + 1;
-}
 
 function guardCreateDestination(
   snapshot: CanonicalSnapshot,
@@ -101,7 +90,13 @@ export function executeCreate(request: Request, rootPath: string, cachePath: str
       refuseDescriptorConflicts(root.rootPath);
       authority = synchronizeAuthority(database, root, snapshot);
       requireWriteContext(request, authority);
-      const previewVersion = requireCreateBudget(database, snapshot.tasks.length);
+      const previewVersion =
+        requireVersionBudget(
+          database,
+          snapshot.tasks.length * 3 + 7,
+          3,
+          "explicit fresh-cache authority is required before capture",
+        ) + 1;
       const taskId = randomUUID();
       if (
         snapshot.files.some(
