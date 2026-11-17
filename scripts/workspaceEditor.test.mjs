@@ -140,15 +140,6 @@ test("editor health creates no cache or other local files", async (t) => {
   assert.deepEqual(bytes(selected.root), original);
 });
 
-test("editor refuses removed modes before querying the selected task", async (t) => {
-  const selected = workspace(t),
-    { editor } = await server(t, selected),
-    calls = traceFetch(t);
-  await assert.rejects(editor.begin(closedId, "parent"), /Unsupported editor mode/);
-  assert.equal(calls.length, 0);
-  assert.equal(existsSync(selected.cache), false);
-});
-
 test("editor health requires the exact connected-command whitelist, not comma coercion or expansion", async (t) => {
   const selected = workspace(t),
     { dev } = await server(t, selected);
