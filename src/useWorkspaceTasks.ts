@@ -365,16 +365,11 @@ export function useWorkspaceTasks({
     };
   }, [refreshTasks, invalidateQueries]);
 
-  function syncContextTasks(
-    nextTasks: TaskView[],
-    candidates?: TaskView | readonly TaskView[],
-  ): void {
-    const candidateList =
-      candidates === undefined ? [] : Array.isArray(candidates) ? candidates : [candidates];
+  function syncContextTasks(nextTasks: TaskView[], candidates: readonly TaskView[] = []): void {
     setContextTasks((previous) => {
       const visibleIds = new Set(nextTasks.map((entry) => entry.id));
       const byId = new Map(
-        [...previous, ...nextTasks, ...candidateList].map((entry) => [entry.id, entry]),
+        [...previous, ...nextTasks, ...candidates].map((entry) => [entry.id, entry]),
       );
       const requiredContextIds = contextTaskIds(nextTasks, [...byId.values()]);
       return [...byId.values()].filter(
