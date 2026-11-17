@@ -6,13 +6,15 @@ export function sidecarSourceTime(root) {
   const backend = path.join(root, "src/backend");
   const filenames = [
     backend,
-    "scripts/build-sidecar.mjs",
-    "scripts/sea.mjs",
-    "package.json",
-    "pnpm-lock.yaml",
-    "tsconfig.backend.json",
-    "tsconfig.json",
-  ].map((filename) => (path.isAbsolute(filename) ? filename : path.join(root, filename)));
+    ...[
+      "scripts/build-sidecar.mjs",
+      "scripts/sea.mjs",
+      "package.json",
+      "pnpm-lock.yaml",
+      "tsconfig.backend.json",
+      "tsconfig.json",
+    ].map((filename) => path.join(root, filename)),
+  ];
   for (const entry of readdirSync(backend, { recursive: true, withFileTypes: true })) {
     if (entry.isDirectory() || entry.name.endsWith(".ts"))
       filenames.push(path.join(entry.parentPath, entry.name));

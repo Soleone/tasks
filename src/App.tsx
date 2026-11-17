@@ -546,9 +546,8 @@ export default function App({
     }
   });
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => onAppKeyDown(event);
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onAppKeyDown);
+    return () => window.removeEventListener("keydown", onAppKeyDown);
   }, []);
 
   function openHelp(): void {
@@ -715,7 +714,7 @@ export default function App({
     // From the palette, inherit its return target like settings does so the
     // picker's close restores focus past the unmounted palette search field.
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("picker", fromPalette ?? undefined);
+    focusStack.push("picker", fromPalette);
     setHelpOpen(false);
     setPicker({ mode, subject });
   }
@@ -726,32 +725,28 @@ export default function App({
 
   function openCategoryPicker(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("category-picker", fromPalette ?? undefined);
+    focusStack.push("category-picker", fromPalette);
     setHelpOpen(false);
     setCategoryPickerOpen(true);
   }
 
-  function closeCategoryPicker(): void {
-    setCategoryPickerOpen(false);
-  }
-
   function openStatusMenu(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("status-menu", fromPalette ?? undefined);
+    focusStack.push("status-menu", fromPalette);
     setHelpOpen(false);
     setStatusMenuOpen(true);
   }
 
   function openPriorityMenu(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("priority-menu", fromPalette ?? undefined);
+    focusStack.push("priority-menu", fromPalette);
     setHelpOpen(false);
     setPriorityMenuOpen(true);
   }
 
   function openTagPicker(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("tag-picker", fromPalette ?? undefined);
+    focusStack.push("tag-picker", fromPalette);
     setHelpOpen(false);
     setTagPickerOpen(true);
   }
@@ -763,7 +758,7 @@ export default function App({
       searchInput.current?.focus();
       return;
     }
-    focusStack.push("search", fromPalette ?? undefined);
+    focusStack.push("search", fromPalette);
     setSearchOpen(true);
   }
 
@@ -826,13 +821,6 @@ export default function App({
     setAnnouncement(increase === 0 ? "Font size reset" : `Font size increased by ${increase}%`);
   }
 
-  function chooseExactStatus(status: TaskStatus | null): void {
-    setStatusMenuOpen(false);
-    setOpenLens(null);
-    setExactStatus(status);
-    requestActiveTask();
-  }
-
   function chooseStatusSelection(
     preset: StatusPreset | undefined,
     exact: TaskStatus | null | undefined,
@@ -845,14 +833,6 @@ export default function App({
       if (exact === undefined) setExactStatus(null);
     }
     requestActiveTask();
-  }
-
-  function resetStatusFilter(): void {
-    chooseStatusSelection("active", null);
-  }
-
-  function showAllStatuses(): void {
-    chooseStatusSelection("all", null);
   }
 
   function choosePriority(priority: TaskPriority | null): void {
@@ -1104,9 +1084,9 @@ export default function App({
           statusPreset={statusPreset}
           exactStatus={exactStatus}
           onToggleStatusPreset={toggleStatusPreset}
-          onResetStatusFilter={resetStatusFilter}
-          onShowAllStatuses={showAllStatuses}
-          onExactStatus={chooseExactStatus}
+          onResetStatusFilter={() => chooseStatusSelection("active", null)}
+          onShowAllStatuses={() => chooseStatusSelection("all", null)}
+          onExactStatus={(status) => chooseStatusSelection(undefined, status)}
           onOpenStatusMenu={openStatusMenu}
           priorityFilter={priorityFilter}
           onPriorityFilter={choosePriority}
@@ -1246,7 +1226,7 @@ export default function App({
       {categoryPickerOpen ? (
         <CategoryPicker
           open
-          onClose={closeCategoryPicker}
+          onClose={() => setCategoryPickerOpen(false)}
           finalFocus={() => focusStack.restore("category-picker") ?? undefined}
           onSelect={chooseCategory}
           onRenamed={(renamed) => {

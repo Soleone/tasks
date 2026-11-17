@@ -15,7 +15,7 @@ import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
  * with Vite HMR against a real task folder. Never package or ship this;
  * production desktop traffic stays on the sidecar stdio bridge.
  */
-export const DEFAULT_DEV_BACKEND_PORT = 5174;
+const DEFAULT_DEV_BACKEND_PORT = 5174;
 // Attachments can be 10 MiB, which base64 grows to about 13.4 MiB.
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
 const HOME_COMMANDS = [
@@ -26,9 +26,8 @@ const HOME_COMMANDS = [
   "workspace.newHistory",
 ];
 
-export type DevServerOptions = {
+type DevServerOptions = {
   port?: number;
-  host?: string;
   /** The Tasks home to edit. */
   home?: string;
 };
@@ -60,12 +59,7 @@ function isAllowedOrigin(origin: string): boolean {
   if (url.protocol !== "http:") {
     return false;
   }
-  return (
-    url.hostname === "localhost" ||
-    url.hostname === "127.0.0.1" ||
-    url.hostname === "[::1]" ||
-    url.hostname === "::1"
-  );
+  return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
 }
 
 function readBody(request: http.IncomingMessage): Promise<Buffer> {
@@ -104,9 +98,6 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
     profilePath: home.homePath,
     writeCommands: [...EDITOR_COMMANDS],
   };
-  const host = options.host ?? "127.0.0.1";
-  const port =
-    options.port ?? Number(process.env.TASKS_DEV_BACKEND_PORT ?? DEFAULT_DEV_BACKEND_PORT);
 
   const server = http.createServer((request, response) => {
     void handleRequest(request, response, selection).catch(() => {
@@ -128,7 +119,7 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
 
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, host, () => {
+    server.listen(options.port ?? DEFAULT_DEV_BACKEND_PORT, "127.0.0.1", () => {
       const address = server.address() as AddressInfo;
       resolve({
         server,

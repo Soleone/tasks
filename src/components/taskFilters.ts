@@ -100,8 +100,8 @@ export function taskMatchesViewFilters(task: TaskView, filters: TaskViewFilters)
     const taskTags = new Set(task.tags.map((tag) => tag.slug));
     if (!filters.tagSlugs.every((slug) => taskTags.has(slug))) return false;
   }
-  if (filters.searchQuery.trim() !== "") {
-    const needle = filters.searchQuery.trim().toLowerCase();
+  const needle = filters.searchQuery.trim().toLowerCase();
+  if (needle !== "") {
     const haystack = `${task.title}\n${task.description}`.toLowerCase();
     if (!haystack.includes(needle)) return false;
   }
@@ -167,9 +167,7 @@ export const PRIORITY_META: PriorityMeta[] = [
 ];
 
 export function priorityMeta(value: TaskPriority): PriorityMeta {
-  const found = PRIORITY_META.find((meta) => meta.value === value);
-  if (!found) throw new Error(`unsupported priority ${String(value)}`);
-  return found;
+  return PRIORITY_META[value];
 }
 
 /** Effort names, smallest first. */

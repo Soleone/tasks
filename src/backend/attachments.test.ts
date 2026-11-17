@@ -1,48 +1,17 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import os from "node:os";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import type { TestContext } from "node:test";
-import { executeLine } from "./gateway.js";
 import type { Response } from "./protocol.js";
+import { createCopyTestWorkspace as setup, send, success } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 
-const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
 const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
 const taskId = "c8d4206d-c25a-4317-baa4-a2c5443060e9";
 const png = Buffer.concat([Buffer.from("\x89PNG\r\n\x1a\n", "latin1"), Buffer.from("pixels")]);
-type Workspace = { directory: string; root: string; cache: string };
 
-function setup(t: TestContext): Workspace {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-attachments-"));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const root = path.join(directory, "root");
-  cpSync(golden, root, { recursive: true });
-  return { directory, root, cache: path.join(directory, "cache.db") };
-}
-function send(workspace: Workspace, envelope: object): Response {
-  return executeLine(
-    Buffer.from(JSON.stringify({ version: 2, ...envelope })),
-    workspace.root,
-    workspace.cache,
-  );
-}
-function success(response: Response): Extract<Response, { ok: true }> {
-  assert.equal(response.ok, true, JSON.stringify(response));
-  if (!response.ok) throw new Error("failed");
-  return response;
-}
 function failure(response: Response): string {
   assert.equal(response.ok, false, JSON.stringify(response));
   return response.ok ? "" : response.error.code;

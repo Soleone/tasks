@@ -29,13 +29,18 @@ export function shortDueDate(due: string, today: string): string {
   return due.slice(0, 4) === today.slice(0, 4) ? date : `${date}, ${year}`;
 }
 
+/** Local calendar days from date to now; rounded because DST days are not 24 hours. */
+function localDaysAgo(date: Date, now: Date): number {
+  const startOfDay = (value: Date): number =>
+    new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+  return Math.round((startOfDay(now) - startOfDay(date)) / (24 * 60 * 60 * 1000));
+}
+
 /** Recent past dates use relative wording; older dates use calendar dates. */
 export function formatTaskDate(iso: string, now = new Date()): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const startOfDay = (value: Date): number =>
-    new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
-  const daysAgo = Math.round((startOfDay(now) - startOfDay(date)) / (24 * 60 * 60 * 1000));
+  const daysAgo = localDaysAgo(date, now);
   if (daysAgo === 0) return "today";
   if (daysAgo === 1) return "yesterday";
   if (daysAgo > 1 && daysAgo < 7) return `${daysAgo} days ago`;
@@ -62,9 +67,7 @@ export function formatTaskDateTime(iso: string): string {
 export function formatCompletedTime(iso: string, clockOnly = false, now = new Date()): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const startOfDay = (value: Date): number =>
-    new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
-  const daysAgo = Math.round((startOfDay(now) - startOfDay(date)) / (24 * 60 * 60 * 1000));
+  const daysAgo = localDaysAgo(date, now);
   if (daysAgo === 0 || clockOnly) return clockTime(date);
   if (daysAgo > 0 && daysAgo < 7) return WEEKDAYS[date.getDay()];
   return date.getFullYear() === now.getFullYear()

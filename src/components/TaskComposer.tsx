@@ -147,9 +147,9 @@ function keepInView(element: HTMLElement): () => void {
   };
 }
 
-// Arrow keys move the highlighted due date by a day or a week.
 const TITLE_PLACEHOLDER = "What needs doing?";
 
+// Arrow keys move the highlighted due date by a day or a week.
 const dueSteps: Partial<Record<string, number>> = {
   ArrowLeft: -1,
   ArrowRight: 1,
@@ -522,7 +522,7 @@ export function TaskComposer({
     );
   }
 
-  function handleTitleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
+  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.nativeEvent.isComposing || event.keyCode === 229) {
       if (event.key === "Enter") event.preventDefault();
       return;
@@ -689,11 +689,9 @@ export function TaskComposer({
           <div
             className="flex min-w-0 flex-wrap items-center gap-1"
             onMouseDown={(event) => {
-              const input = titleInput.current;
-              if (event.target !== event.currentTarget || !input) return;
+              if (event.target !== event.currentTarget) return;
               event.preventDefault();
-              input.focus();
-              input.setSelectionRange(input.value.length, input.value.length);
+              focusAtEnd(titleInput.current);
             }}
           >
             <div className="inline-grid max-w-full grid-cols-1">

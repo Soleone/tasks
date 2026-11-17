@@ -3,33 +3,24 @@ import { createHash } from "node:crypto";
 import {
   cpSync,
   existsSync,
-  mkdtempSync,
   readFileSync,
   renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
-import type { TestContext } from "node:test";
 import { readCanonicalRoot } from "./canonicalReader.js";
 import type { CanonicalSnapshot } from "./canonicalReader.js";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
 import { executeLine } from "./gateway.js";
 import type { Response } from "./protocol.js";
 import { observeQueryAuthority, synchronizeAuthority, withCacheTransaction } from "./queryCache.js";
 
 const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
-function setup(t: TestContext): { root: string; cache: string } {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-authority-"));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const root = path.join(directory, "root");
-  cpSync(golden, root, { recursive: true });
-  return { root, cache: path.join(directory, "cache.db") };
-}
 
 function request(root: string, cache: string, command: string): Response {
   return executeLine(Buffer.from(JSON.stringify({ version: 2, command })), root, cache);
@@ -84,14 +75,14 @@ test("auth.fresh-context: a new history sets the copied cache aside and starts a
 });
 
 test("auth.moved-home: a moved folder and cache keep their history only after confirmation", (t) => {
-  const { root, cache } = setup(t);
+  const { directory, root, cache } = setup(t);
   let snapshot = readCanonicalRoot(root);
   const first = observeQueryAuthority(cache, snapshot, snapshot);
-  const moved = `${path.dirname(root)}-moved`;
-  renameSync(path.dirname(root), moved);
+  const moved = `${directory}-moved`;
+  renameSync(directory, moved);
   t.after(() => rmSync(moved, { recursive: true, force: true }));
-  const movedRoot = path.join(moved, path.basename(root));
-  const movedCache = path.join(moved, path.basename(cache));
+  const movedRoot = path.join(moved, path.relative(directory, root));
+  const movedCache = path.join(moved, path.relative(directory, cache));
   snapshot = readCanonicalRoot(movedRoot);
   assert.throws(() => observeQueryAuthority(movedCache, snapshot, snapshot), {
     code: "HOME_MOVED",

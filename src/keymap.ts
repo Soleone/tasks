@@ -75,8 +75,19 @@ const BINDING_IDS: ReadonlySet<string> = new Set(BINDINGS.map((binding) => bindi
  * Keys that always keep their meaning, so they can't be picked (`keys.fixed`): moving around,
  * the editor, priorities by number, the Menu key and Ctrl+Y for redo.
  */
-const FIXED_KEYS = new Set(["Tab", "Esc", "Enter", "Backspace", "ContextMenu"]);
-const FIXED_WITH_ANY_MODIFIER = new Set(["↑", "↓", "←", "→", "Home", "End", ...FIXED_KEYS]);
+const FIXED_WITH_ANY_MODIFIER = new Set([
+  "↑",
+  "↓",
+  "←",
+  "→",
+  "Home",
+  "End",
+  "Tab",
+  "Esc",
+  "Enter",
+  "Backspace",
+  "ContextMenu",
+]);
 const FIXED_COMBOS = new Set(["0", "1", "2", "3", "4", "Mod+Y"]);
 
 const listeners = new Set<() => void>();
@@ -146,8 +157,7 @@ export function setKey(id: BindingId, key: string | null): void {
 
 /** Gives `id` the key `other` had, and `other` the key `id` had (`keys.conflict`). */
 export function swapKeys(id: BindingId, key: string, other: BindingId): void {
-  const previous = keyFor(id);
-  setKey(other, previous);
+  setKey(other, keyFor(id));
   setKey(id, key);
 }
 

@@ -15,14 +15,26 @@ export function listActivity(
     args.taskId !== undefined &&
     (typeof args.taskId !== "string" || !/^[A-Za-z0-9_-]+$/.test(args.taskId))
   )
-    throw new CommandError("INVALID_ARGUMENT", "invalid activity taskId");
+    throw new CommandError(
+      "INVALID_ARGUMENT",
+      "activity taskId must contain only letters, numbers, underscores or hyphens. Use a task ID from task.list.",
+    );
   const limit = args.limit ?? 50;
   if (typeof limit !== "number" || !Number.isSafeInteger(limit))
-    throw new CommandError("INVALID_ARGUMENT", "invalid activity limit");
+    throw new CommandError(
+      "INVALID_ARGUMENT",
+      "activity limit must be a whole number. Use a number such as 50, or omit limit.",
+    );
   if (args.since !== undefined && !isTimestamp(args.since))
-    throw new CommandError("INVALID_ARGUMENT", "invalid activity since");
+    throw new CommandError(
+      "INVALID_ARGUMENT",
+      "activity since must be a UTC timestamp with milliseconds. Use a value such as 2026-01-01T00:00:00.000Z, or omit since.",
+    );
   if (args.from !== undefined && args.from !== "cli")
-    throw new CommandError("INVALID_ARGUMENT", "invalid activity from");
+    throw new CommandError(
+      "INVALID_ARGUMENT",
+      'activity from only accepts "cli". Use "cli" for CLI history, or omit from for this client\'s history.',
+    );
   const taskId = (args.taskId as string | undefined) ?? null;
   const since = (args.since as string | undefined) ?? null;
   const rows = database
