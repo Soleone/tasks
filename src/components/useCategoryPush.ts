@@ -103,8 +103,9 @@ function pushOut(push: Push, view: DOMRect, leaving: Shot[]): void {
       ),
     );
   });
-  const remove = () => stage.remove();
-  Promise.allSettled(push.animations.map((animation) => animation.finished)).then(remove, remove);
+  void Promise.allSettled(push.animations.map((animation) => animation.finished)).then(() =>
+    stage.remove(),
+  );
 }
 
 /**
