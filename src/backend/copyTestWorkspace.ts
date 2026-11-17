@@ -76,17 +76,13 @@ export function run(workspace: CopyTestWorkspace, request: object, loader?: stri
   );
 }
 
-export function recover(
-  workspace: CopyTestWorkspace,
-  operationId: string,
-  key = "resume",
-): Response {
+export function recover(workspace: CopyTestWorkspace, operationId: string): Response {
   const info = send(workspace, { command: "workspace.info" });
   if (!info.ok) return info;
   return send(workspace, {
     command: "workspace.recovery.resume",
     args: { operationId },
     writeContext: info.writeContext,
-    idempotencyKey: key,
+    idempotencyKey: "resume",
   });
 }
