@@ -82,22 +82,17 @@ export function useFocusStack(): FocusStack {
 
 function createFocusStack(): FocusStack {
   const entries: { id: string; element: HTMLElement }[] = [];
-  const find = (id: string): number => {
-    for (let index = entries.length - 1; index >= 0; --index) {
-      if (entries[index].id === id) return index;
-    }
-    return -1;
-  };
   return {
     push(id, from) {
       const element = (from ?? document.activeElement) as HTMLElement | null;
       if (element) entries.push({ id, element });
     },
     restore(id) {
-      const index = find(id);
-      if (index === -1) return undefined;
-      const element = entries.splice(index, 1)[0].element;
-      return element.isConnected ? element : undefined;
+      for (let index = entries.length - 1; index >= 0; --index) {
+        if (entries[index].id !== id) continue;
+        const element = entries.splice(index, 1)[0].element;
+        return element.isConnected ? element : undefined;
+      }
     },
   };
 }
