@@ -25,14 +25,6 @@ type PendingRequest<Response extends CorrelatedResponse> = {
 
 const REQUEST_TIMEOUT_MS = 120_000;
 
-function asText(value: string | Uint8Array): string {
-  return typeof value === "string" ? value : new TextDecoder().decode(value);
-}
-
-function asError(value: unknown): Error {
-  return value instanceof Error ? value : new Error(String(value));
-}
-
 export class JsonLineSession<Response extends CorrelatedResponse> {
   private child: BackendProcess | null = null;
   private starting: Promise<void> | null = null;
@@ -115,7 +107,9 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
     const isCurrent = () => spawnedChild !== null && this.child === spawnedChild;
 
     command.stdout.on("data", (data) => {
-      if (isCurrent()) this.consumeStdout(asText(data));
+      if (isCurrent()) {
+        this.consumeStdout(typeof data === "string" ? data : new TextDecoder().decode(data));
+      }
     });
     command.on("error", (message) => {
       if (isCurrent()) this.fail(new Error(message));
@@ -175,7 +169,7 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
   }
 
   private rejectPending(value: unknown): BackendProcess | null {
-    const error = asError(value);
+    const error = value instanceof Error ? value : new Error(String(value));
     const child = this.child;
     this.child = null;
     this.stdoutBuffer = "";
