@@ -44,15 +44,6 @@ function stage(platform, source, output) {
   }
 }
 
-function releaseNotes() {
-  const changelog = readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
-  const section = changelog
-    .split(/(?=^#{1,2} \[?\d+\.\d+\.\d+)/m)
-    .find((part) => /^#{1,2} \[?(\d+\.\d+\.\d+)/.exec(part)?.[1] === version);
-  if (!section) throw new Error(`No changelog entry for ${version}.`);
-  return section.slice(section.indexOf("\n") + 1).trim();
-}
-
 function manifest(directory, tag) {
   verifyTag(tag);
   const repository = process.env.GITHUB_REPOSITORY;
@@ -69,7 +60,12 @@ function manifest(directory, tag) {
       url: `https://github.com/${repository}/releases/download/${tag}/${file.name}`,
     };
   }
-  const notes = releaseNotes();
+  const changelog = readFileSync(path.join(root, "CHANGELOG.md"), "utf8");
+  const section = changelog
+    .split(/(?=^#{1,2} \[?\d+\.\d+\.\d+)/m)
+    .find((part) => /^#{1,2} \[?(\d+\.\d+\.\d+)/.exec(part)?.[1] === version);
+  if (!section) throw new Error(`No changelog entry for ${version}.`);
+  const notes = section.slice(section.indexOf("\n") + 1).trim();
   writeFileSync(
     path.join(directory, "latest.json"),
     `${JSON.stringify({ version, notes, pub_date: new Date().toISOString(), platforms }, null, 2)}\n`,
