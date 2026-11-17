@@ -127,10 +127,10 @@ function applyToken(
   token: Pick<ShorthandToken, "marker" | "slug">,
   toggle: boolean,
 ): { classification: Classification; change: LiftChange } {
-  const { category, tags, due } = classification;
+  const { tags } = classification;
   if (token.marker === "@" || token.marker === "!") {
     const field = token.marker === "@" ? "category" : "due";
-    const current = token.marker === "@" ? category : due;
+    const current = classification[field];
     if (current === token.slug)
       return toggle
         ? { classification: { ...classification, [field]: null }, change: "removed" }
@@ -166,8 +166,9 @@ export function liftToken(draft: TitleDraft, token: ShorthandToken, toggle: bool
 export function liftFinished(draft: TitleDraft, toggle: boolean): Lift | null {
   let last: Lift | null = null;
   for (let token = finishedToken(draft.text, draft.caret); token;) {
-    last = liftToken(last?.draft ?? draft, token, toggle);
-    token = finishedToken(last.draft.text, last.draft.caret);
+    last = liftToken(draft, token, toggle);
+    draft = last.draft;
+    token = finishedToken(draft.text, draft.caret);
   }
   return last;
 }
