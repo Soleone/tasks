@@ -76,12 +76,7 @@ export const TaskOption = memo(function TaskOption({
   onEditDescription,
 }: TaskOptionProps): ReactElement {
   const { task } = row;
-  const blockedByLabels = task.blockedByIds
-    .map((id) => {
-      const blocker = taskById.get(id);
-      return blocker ? blocker.title : null;
-    })
-    .filter((label): label is string => label !== null);
+  const blockedByLabels = task.blockedByIds.flatMap((id) => taskById.get(id)?.title ?? []);
   const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
 
   return (
@@ -246,8 +241,6 @@ export function InlineTaskComposer({
 }): ReactElement {
   const task = composer.mode === "edit" ? composer.task : undefined;
   const parentId = composer.mode === "create" ? composer.parentId : undefined;
-  const initialTitle = composer.mode === "create" ? composer.initialTitle : undefined;
-  const logged = composer.mode === "create" && composer.logged === true;
   const indented = (task ? task.parentId : parentId) != null;
 
   // Laid out like the row it replaces: the status glyph, then the title, so nothing shifts when
@@ -271,10 +264,10 @@ export function InlineTaskComposer({
           key={task ? task.id : `create-${parentId ?? "root"}`}
           task={task}
           parentId={parentId}
-          initialTitle={initialTitle}
+          initialTitle={composer.mode === "create" ? composer.initialTitle : undefined}
           initialDescription={composer.mode === "create" ? composer.initialDescription : undefined}
           initialImage={composer.mode === "create" ? composer.initialImage : undefined}
-          logged={logged}
+          logged={composer.mode === "create" && composer.logged === true}
           categories={categories}
           categoryColumn={categoryColumn}
           onSaved={onSaved}
