@@ -58,6 +58,13 @@ function quarantinePath(intent: DoctorIntent, index: number): string {
     `.syncthing.taskdb-doctor-conflict-${intent.operationId}-${index}.tmp`,
   );
 }
+/** Names this operation may create inside tasks/ besides the task files themselves. */
+function privateTaskNames(intent: DoctorIntent): string[] {
+  return [
+    ...intent.writes.map((_, index) => stagePath(intent, index)),
+    ...intent.plan.removedConflictPaths.map((_, index) => quarantinePath(intent, index)),
+  ].map((file) => path.basename(file));
+}
 function progressPath(intent: DoctorIntent): string {
   return path.join(localDomain(intent.root), `doctor-${intent.operationId}.progress.json`);
 }
@@ -118,12 +125,7 @@ export function parseDoctorIntent(value: unknown, root: RootBinding): DoctorInte
     assertArgs(request.args, ["planId"]);
     if (request.args.planId !== intent.plan.planId) conflict();
     const plan = parseRetainedDoctorPlan(intent.plan, root);
-    const privateNames = intent.writes
-      ?.map((_, index) => path.basename(stagePath(intent, index)))
-      .concat(
-        plan.removedConflictPaths.map((_, index) => path.basename(quarantinePath(intent, index))),
-      );
-    if (privateNames?.some((name) => plan.source.taskEntries.includes(name))) conflict();
+    if (privateTaskNames(intent).some((name) => plan.source.taskEntries.includes(name))) conflict();
     if (
       canonicalJson(intent.writes) !== canonicalJson(doctorIntentWrites(plan, intent.at)) ||
       (!intent.writes.length && !plan.removedConflictPaths.length)
@@ -226,13 +228,7 @@ function guardDoctor(
     canonicalJson(actual.rootEntries) !== canonicalJson(original.rootEntries)
   )
     conflict();
-  const allowedPrivateNames = intent.writes
-    .map((_, index) => path.basename(stagePath(intent, index)))
-    .concat(
-      intent.plan.removedConflictPaths.map((_, index) =>
-        path.basename(quarantinePath(intent, index)),
-      ),
-    );
+  const allowedPrivateNames = privateTaskNames(intent);
   const expectedTaskNames = new Set(original.taskEntries),
     expectedFiles = new Map(original.files.map((file) => [file.relativePath, file]));
   for (const [index, write] of intent.writes.entries()) {
