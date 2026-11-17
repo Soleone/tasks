@@ -211,7 +211,6 @@ export function useWorkspaceActions({
 
   async function pauseTaskFromPalette(task: TaskView): Promise<void> {
     const current = tasks.find((candidate) => candidate.id === task.id) ?? task;
-    const wasActive = taskListRef.current?.getActiveTask()?.id === current.id;
     closeHelp();
     if (current.status === "done" || current.status === "canceled") {
       setAnnouncement(
@@ -226,7 +225,7 @@ export function useWorkspaceActions({
       });
       updateVisibleTask(result.task);
       recordOperationUndo(result.operationId, [current], [result.task]);
-      if (result.changed !== false) handleStatusChanged(current, result.task, wasActive);
+      if (result.changed !== false) handleStatusChanged(current, result.task);
       setAnnouncement(
         `${current.title}: ${result.task.status === "paused" ? "Paused" : "In progress"}`,
       );
@@ -367,10 +366,7 @@ export function useWorkspaceActions({
         else history.completeUndo(entry.operationId, next);
         showHistory(history);
       } else setStatusUndo(null);
-      const label =
-        restored.length === 1
-          ? (taskStatusMeta[restored[0].status]?.label ?? restored[0].status)
-          : null;
+      const label = restored.length === 1 ? taskStatusMeta[restored[0].status].label : null;
       const verb = direction === "redo" ? "Redid" : "Undid";
       const message =
         entry.createdTaskIds.length > 0
@@ -542,7 +538,7 @@ export function useWorkspaceActions({
     );
   }
 
-  function handleStatusChanged(previous: TaskView, current: TaskView, _wasActive: boolean): void {
+  function handleStatusChanged(previous: TaskView, current: TaskView): void {
     const nextTasks = visibleTasksAfterUpdate([current]);
     const movedOutOfView =
       taskIsInCurrentView(previous) && !taskIsInCurrentView(current, nextTasks);
@@ -550,11 +546,7 @@ export function useWorkspaceActions({
     if (previous.status === "canceled" && current.status !== "canceled") void refreshTasks(0, true);
   }
 
-  function handleStatusBatchChanged(
-    previous: TaskView[],
-    current: TaskView[],
-    _wasActiveTaskId: string | null,
-  ): void {
+  function handleStatusBatchChanged(previous: TaskView[], current: TaskView[]): void {
     const nextTasks = visibleTasksAfterUpdate(current);
     const previousById = new Map(previous.map((task) => [task.id, task]));
     const movedOutOfView = current.filter((task) => {
