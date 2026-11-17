@@ -103,7 +103,7 @@ export function useTaskListSelection({
   const identityActiveIndex =
     active.id === null ? -1 : visibleRows.findIndex((row) => row.task.id === active.id);
   const activeIndex = identityActiveIndex >= 0 ? identityActiveIndex : clampedActiveIndex;
-  const activeRow = visibleRows.length ? visibleRows[activeIndex] : undefined;
+  const activeRow = visibleRows[activeIndex];
   const activeTask = activeRow?.task;
   const activeTaskId = activeTask?.id ?? null;
   const selectedIds = range ?? activeOnly(activeRow);
