@@ -68,7 +68,7 @@ export function parseShorthand(input: string, today = localToday()): ParsedShort
     const start = match.index + match[1].length;
     if (protectedUnits.slice(start, start + match[2].length + match[3].length).some(Boolean))
       continue;
-    const slug = slugInput(match[3]);
+    const slug = match[3].toLowerCase();
     (match[2] === "@" ? categories : tags).add(slug);
     ranges.push({ start, end: start + 1 + match[3].length });
   }
