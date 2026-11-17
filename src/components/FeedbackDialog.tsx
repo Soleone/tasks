@@ -24,17 +24,6 @@ const KINDS: [FeedbackKind, string][] = [
   ["bug", "Bug"],
 ];
 
-async function send(report: FeedbackReport): Promise<string> {
-  const response = await fetch(FEEDBACK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(report),
-  });
-  const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
-  if (!response.ok || !body.url) throw new Error(body.error ?? "The report couldn't be sent.");
-  return body.url;
-}
-
 /** Mounted only while open, so every opening starts a fresh report. */
 export function FeedbackDialog({
   onClose,
@@ -56,7 +45,14 @@ export function FeedbackDialog({
     setSending(true);
     setError(null);
     try {
-      setIssueUrl(await send({ kind, title, description, source }));
+      const response = await fetch(FEEDBACK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, title, description, source } satisfies FeedbackReport),
+      });
+      const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!response.ok || !body.url) throw new Error(body.error ?? "The report couldn't be sent.");
+      setIssueUrl(body.url);
     } catch (caught) {
       // fetch throws a TypeError when it gets no response at all.
       setError(
