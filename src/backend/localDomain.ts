@@ -146,7 +146,6 @@ export function parseIntentEnvelope(
   )
     refuse();
   localPathOutsideRoot(intent.cachePath, root.rootPath);
-  localDomain(root);
   return request;
 }
 

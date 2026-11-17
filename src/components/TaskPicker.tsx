@@ -18,25 +18,6 @@ export type TaskPickerMode = "blocker" | "move";
 
 const NON_CANCELED_TASK_STATUSES = ["open", "in_progress", "paused", "done"] as const;
 
-function collectDescendantIds(candidates: TaskView[], rootId: string): Set<string> {
-  const childrenByParent = new Map<string, string[]>();
-  for (const task of candidates) {
-    if (!task.parentId) continue;
-    const siblings = childrenByParent.get(task.parentId) ?? [];
-    siblings.push(task.id);
-    childrenByParent.set(task.parentId, siblings);
-  }
-  const descendants = new Set<string>();
-  const queue = [...(childrenByParent.get(rootId) ?? [])];
-  while (queue.length > 0) {
-    const current = queue.pop() as string;
-    if (current === rootId || descendants.has(current)) continue;
-    descendants.add(current);
-    queue.push(...(childrenByParent.get(current) ?? []));
-  }
-  return descendants;
-}
-
 function pickerCandidates(all: TaskView[], subject: TaskView, mode: TaskPickerMode): TaskView[] {
   const selectable = all.filter((task) => task.status !== "canceled");
   if (mode === "blocker") {
@@ -45,13 +26,8 @@ function pickerCandidates(all: TaskView[], subject: TaskView, mode: TaskPickerMo
       (task) => task.status !== "done" && task.id !== subject.id && !blocked.has(task.id),
     );
   }
-  const descendants = collectDescendantIds(all, subject.id);
   return selectable.filter(
-    (task) =>
-      task.id !== subject.id &&
-      !descendants.has(task.id) &&
-      task.id !== subject.parentId &&
-      task.parentId === null,
+    (task) => task.id !== subject.id && task.id !== subject.parentId && task.parentId === null,
   );
 }
 

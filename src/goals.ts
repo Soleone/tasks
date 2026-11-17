@@ -84,16 +84,14 @@ export function goalsToday(
   const today = dayStart(settings, now).toISOString();
   const { start, daysLeft } = weekStart(settings, now);
   const week = start.toISOString();
-  const goalOf = (task: DoneTask): string | null | undefined => {
+  const goalOf = (task: DoneTask): string | null => {
     const slug = task.category?.slug;
-    if (slug !== undefined && slug in settings.goals) return slug;
-    return settings.otherGoal ? null : undefined;
+    return slug !== undefined && slug in settings.goals ? slug : null;
   };
   const entries: [string | null, Goal][] = Object.entries(settings.goals).sort(([a], [b]) =>
     a.localeCompare(b),
   );
   if (settings.otherGoal) entries.push([null, settings.otherGoal]);
-  let done = 0;
   const goals = entries.map(([slug, goal]): GoalProgress => {
     let doneToday = 0;
     let doneBefore = 0;
@@ -111,9 +109,8 @@ export function goalsToday(
       ...(goal.per === "week" ? { week: { done: doneBefore + doneToday, count: goal.count } } : {}),
     };
   });
-  for (const task of doneTasks) if (task.closedAt !== null && task.closedAt >= today) done += 1;
   return {
-    done,
+    done: doneTasks.filter((task) => task.closedAt !== null && task.closedAt >= today).length,
     filled: goals.reduce((sum, goal) => sum + Math.min(goal.done, goal.target), 0),
     target: goals.reduce((sum, goal) => sum + goal.target, 0),
     goals,
