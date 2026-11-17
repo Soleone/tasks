@@ -547,22 +547,22 @@ export function HelpPalette({
   onOpenGoalReport: () => void;
   onCreate: () => void;
   onLogDone: () => void;
-  onCreateChild?: (task: TaskView) => void;
+  onCreateChild: (task: TaskView) => void;
   onOpenCategoryPicker: () => void;
   onOpenStatusMenu: () => void;
   onOpenPriorityMenu: () => void;
   onOpenTagPicker: () => void;
   onOpenSearch: () => void;
   activeTask?: TaskView;
-  onAddBlocker?: (task: TaskView) => void;
-  onMoveUnder?: (task: TaskView) => void;
-  onPauseTask?: (task: TaskView) => void;
-  onCopyTask?: (task: TaskView) => void;
-  onCopyImage?: (task: TaskView) => void;
-  canUndoStatus?: boolean;
-  onUndoStatus?: () => void;
-  canRedo?: boolean;
-  onRedo?: () => void;
+  onAddBlocker: (task: TaskView) => void;
+  onMoveUnder: (task: TaskView) => void;
+  onPauseTask: (task: TaskView) => void;
+  onCopyTask: (task: TaskView) => void;
+  onCopyImage: (task: TaskView) => void;
+  canUndoStatus: boolean;
+  onUndoStatus: () => void;
+  canRedo: boolean;
+  onRedo: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
   const questEntry = useQuestEntry();
@@ -578,17 +578,17 @@ export function HelpPalette({
     "open-goal-report": onOpenGoalReport,
     "new-task": onCreate,
     "log-done-task": onLogDone,
-    "new-child-task": activeTask && onCreateChild ? () => onCreateChild(activeTask) : undefined,
+    "new-child-task": activeTask ? () => onCreateChild(activeTask) : undefined,
     "filter-category": onOpenCategoryPicker,
     "filter-status": onOpenStatusMenu,
     "filter-priority": onOpenPriorityMenu,
     "filter-tags": onOpenTagPicker,
     "filter-search": onOpenSearch,
-    "copy-task": activeTask && onCopyTask ? () => onCopyTask(activeTask) : undefined,
-    "copy-image": activeTask && onCopyImage ? () => onCopyImage(activeTask) : undefined,
-    "add-blocker": activeTask && onAddBlocker ? () => onAddBlocker(activeTask) : undefined,
-    "pause-task": activeTask && onPauseTask ? () => onPauseTask(activeTask) : undefined,
-    "move-under": activeTask && onMoveUnder ? () => onMoveUnder(activeTask) : undefined,
+    "copy-task": activeTask ? () => onCopyTask(activeTask) : undefined,
+    "copy-image": activeTask ? () => onCopyImage(activeTask) : undefined,
+    "add-blocker": activeTask ? () => onAddBlocker(activeTask) : undefined,
+    "pause-task": activeTask ? () => onPauseTask(activeTask) : undefined,
+    "move-under": activeTask ? () => onMoveUnder(activeTask) : undefined,
     "undo-status": canUndoStatus ? onUndoStatus : undefined,
     redo: canRedo ? onRedo : undefined,
   };
