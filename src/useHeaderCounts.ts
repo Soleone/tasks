@@ -48,7 +48,7 @@ async function countAll(settings: SharedSettings): Promise<HeaderCounts> {
     ],
     false,
   );
-  const goals = goalsSet ? goalsToday(settings, done.tasks, now)! : null;
+  const goals = goalsToday(settings, done.tasks, now);
   const today = dayOf(settings, now);
   const week = goalsSet
     ? thisWeek(settings, today).map((day) => ({
