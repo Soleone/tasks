@@ -29,7 +29,7 @@ export function dayMet(goals: GoalsToday): boolean {
 /** A day's share of its goals, from nothing to all met. */
 export function dayShare(goals: GoalsToday): number {
   const { filled, target } = dayProgress(goals);
-  return Math.min(1, filled / target);
+  return filled / target;
 }
 
 /** The days the report can show: from the first day anything was done, up to today. */
@@ -122,11 +122,11 @@ export function currentStreak(
 
 export type RangeStats = { met: number; days: number; done: number; best: number };
 
-/** The shown days up to today: how many were met, out of how many, what got done and the longest streak. */
+/** The shown days, in order, up to today: how many were met, out of how many, what got done and the longest streak. */
 export function rangeStats(judged: ReadonlyMap<string, GoalsToday | null>): RangeStats {
   const stats = { met: 0, days: 0, done: 0, best: 0 };
   let run = 0;
-  for (const [, goals] of [...judged].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const goals of judged.values()) {
     if (goals === null) {
       run = 0;
       continue;
