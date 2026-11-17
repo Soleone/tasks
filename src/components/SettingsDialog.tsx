@@ -186,10 +186,7 @@ export function SettingsDialog({
             event.metaKey
           )
             return;
-          const target = event.target;
-          if (!(target instanceof HTMLElement)) return;
-          const stops = settingsTabStops(event.currentTarget);
-          if (stops.at(-1) !== target) return;
+          if (settingsTabStops(event.currentTarget).at(-1) !== event.target) return;
           const activeTab = event.currentTarget.querySelector<HTMLElement>(
             '[role="tab"][aria-selected="true"]',
           );
@@ -404,7 +401,7 @@ export function SettingsDialog({
                         with history and undo, close Tasks and the CLI and copy the whole folder.
                       </p>
                     </div>
-                    {workspace ? (
+                    {workspace && (
                       <>
                         <code className="wrap-anywhere text-xs">
                           {workspace.editor.selection.profilePath}
@@ -427,7 +424,7 @@ export function SettingsDialog({
                           can damage them.
                         </p>
                       </>
-                    ) : null}
+                    )}
                     {runtimeKind() === "native" && (
                       <Button
                         variant="outline"
