@@ -48,7 +48,7 @@
     "fractional-indexing": "3.2.0",
     "lucide-react": "^1.41.0",
     "memfs": "4.80.1",
-    "motion": "^14.3.0",
+    "motion": "^14.14.0",
     "path-browserify": "^1.0.1",
     "react": "^19.2.8",
     "react-day-picker": "^10.0.2",
