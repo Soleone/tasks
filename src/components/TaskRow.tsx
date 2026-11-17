@@ -523,16 +523,13 @@ function taskBlocker(task: TaskView, blockedByLabels?: string[]): ReactElement |
   const blockerCount = task.blockedByIds.length;
   if (blockerCount === 0) return null;
 
-  const resolved = blockedByLabels ?? [];
-  const unresolvedCount = Math.max(blockerCount - resolved.length, 0);
-  const blockerText =
-    resolved.length > 0
-      ? unresolvedCount > 0
-        ? `${resolved.join(", ")} +${unresolvedCount} more`
-        : resolved.join(", ")
-      : blockerCount === 1
-        ? "1 blocker"
-        : `${blockerCount} blockers`;
+  const resolvedLabels = blockedByLabels ?? [];
+  let blockerText = blockerCount === 1 ? "1 blocker" : `${blockerCount} blockers`;
+  if (resolvedLabels.length > 0) {
+    blockerText = resolvedLabels.join(", ");
+    const unresolvedCount = blockerCount - resolvedLabels.length;
+    if (unresolvedCount > 0) blockerText += ` +${unresolvedCount} more`;
+  }
 
   return (
     <span data-task-blocker className="inline-flex min-w-0 items-center gap-1">
