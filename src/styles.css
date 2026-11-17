@@ -43,7 +43,6 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive: var(--destructive);
   --color-success: var(--success);
   /* On an inverted surface (a tooltip), the theme's green leans toward the page so it stays legible. */
@@ -53,19 +52,6 @@
   --color-success-faint: var(--success-faint);
   --color-priority-soft: color-mix(in oklab, var(--foreground) 50%, var(--muted-foreground));
   --color-classification-category: var(--classification-category);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -469,8 +455,7 @@
 
 /* An effort change nudges the chevrons the way their level points: large and huge kick up,
  * small and tiny kick down, whichever way the change went. */
-[data-effort-enter="up"],
-[data-effort-enter="down"] {
+[data-effort-enter] {
   transform-origin: center;
   animation: task-effort-nudge 320ms ease-out both;
 }
