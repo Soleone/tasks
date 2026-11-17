@@ -79,10 +79,7 @@ export function SortMenu({
         <CurrentIcon aria-hidden="true" />
       </ToolbarTooltip>
       <ToolbarMenuContent align="start" finalFocus={finalFocus}>
-        <DropdownMenuRadioGroup
-          value={sortField}
-          onValueChange={(field: SortField) => onSelect(field)}
-        >
+        <DropdownMenuRadioGroup value={sortField} onValueChange={onSelect}>
           {options.map(({ field, label, key, icon: Icon }) => (
             <DropdownMenuRadioItem
               key={field}
