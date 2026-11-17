@@ -62,7 +62,7 @@
     "@shadcn/lint": "^0.1.0",
     "@soleone/showcase-capture": "^0.1.0",
     "@tailwindcss/vite": "^4.3.5",
-    "@tauri-apps/cli": "^2.11.4",
+    "@tauri-apps/cli": "^2.12.5",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.10",
     "@types/node": "^22.20.1",
