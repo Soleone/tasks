@@ -56,8 +56,6 @@ export function parseOrder(command: string, args: Record<string, unknown>): Orde
       invalid("normalization needs explicit parentId or null");
     return { kind: "normalize", tasks, parentId: args.parentId as string | null };
   }
-  if (command !== "task.reorder")
-    throw new CommandError("UNSUPPORTED_COMMAND", "ordering command is unavailable");
   const placement = args.placement;
   if (!isRecord(placement) || Object.keys(placement).length !== 1)
     invalid("placement needs exactly one anchor or end");
