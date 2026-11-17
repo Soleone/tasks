@@ -90,21 +90,15 @@ export function CategoryPicker({
                   {rename.field(category) ?? (
                     <span className="truncate font-medium">{category.label}</span>
                   )}
-                  <span
-                    data-category-count
-                    className="grid shrink-0 grid-cols-[auto_max-content] items-center gap-x-1 text-muted-foreground"
-                  >
-                    <span
-                      data-category-count-value
-                      className="w-[var(--category-count-width)] text-right tabular-nums"
-                    >
+                  <span className="grid shrink-0 grid-cols-[auto_max-content] items-center gap-x-1 text-muted-foreground">
+                    <span className="w-[var(--category-count-width)] text-right tabular-nums">
                       {category.taskCount}
                     </span>
-                    <span data-category-count-unit className="grid whitespace-nowrap">
+                    <span className="grid whitespace-nowrap">
                       <span aria-hidden="true" className="invisible col-start-1 row-start-1">
                         tasks
                       </span>
-                      <span data-category-count-unit-label className="col-start-1 row-start-1">
+                      <span className="col-start-1 row-start-1">
                         {category.taskCount === 1 ? "task" : "tasks"}
                       </span>
                     </span>
