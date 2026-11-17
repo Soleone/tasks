@@ -56,7 +56,7 @@ function problemFor(home: string, mode: Mode, reason: unknown): Problem {
     };
   if (!(reason instanceof HomeError)) return problem;
   if (reason.code === "HOME_MISSING" || reason.code === "EMPTY_SYNC_FOLDER")
-    return { ...problem, title: "Tasks home not found", message: reason.message, choice: "retry" };
+    return { ...problem, title: "Tasks home not found", choice: "retry" };
   if (reason.code === "FOLDER_IN_USE") return { ...problem, choice: "retry" };
   if (reason.code === "HOME_MOVED")
     return {
@@ -127,8 +127,7 @@ async function openHome(
 /** The app opens the remembered Tasks home. On first launch it asks for one. */
 export default function DesktopWorkspace(): ReactElement | null {
   const [home, setHome] = useState("");
-  // The remembered home while setup was asked for from Settings, so setup can go back to it.
-  const [current, setCurrent] = useState<string | null>(null);
+  const [returnHome, setReturnHome] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [workspace, setWorkspace] = useState<MainWorkspace | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -136,7 +135,7 @@ export default function DesktopWorkspace(): ReactElement | null {
   const homeRef = useRef<HTMLInputElement>(null);
   const { setTheme } = useTheme();
 
-  async function run(label: string, requested: string, mode: Mode, choice?: Choice) {
+  async function openWorkspace(label: string, requested: string, mode: Mode, choice?: Choice) {
     setBusy(label);
     setProblem(null);
     try {
@@ -154,9 +153,10 @@ export default function DesktopWorkspace(): ReactElement | null {
   }
 
   const launch = useEffectEvent((remembered: string | null, suggested: string) => {
-    if (remembered && !homeChoiceRequested) void run("Opening Tasks...", remembered, "launch");
+    if (remembered && !homeChoiceRequested)
+      void openWorkspace("Opening Tasks...", remembered, "launch");
     else {
-      setCurrent(remembered);
+      setReturnHome(remembered);
       setHome(suggested);
       setShowForm(true);
     }
@@ -187,7 +187,7 @@ export default function DesktopWorkspace(): ReactElement | null {
 
   function submit(event: FormEvent): void {
     event.preventDefault();
-    if (home.trim()) void run("Creating the Tasks home...", home.trim(), "create");
+    if (home.trim()) void openWorkspace("Creating the Tasks home...", home.trim(), "create");
   }
 
   if (workspace) return <App workspace={workspace} />;
@@ -215,7 +215,7 @@ export default function DesktopWorkspace(): ReactElement | null {
               className="mt-3 w-fit"
               disabled={busy !== null}
               onClick={() =>
-                void run("Opening Tasks...", problem.home, problem.mode, problem.choice)
+                void openWorkspace("Opening Tasks...", problem.home, problem.mode, problem.choice)
               }
             >
               {problem.choice === "retry"
@@ -281,16 +281,16 @@ export default function DesktopWorkspace(): ReactElement | null {
               type="button"
               variant="outline"
               disabled={busy !== null || !home.trim()}
-              onClick={() => void run("Opening the Tasks home...", home.trim(), "open")}
+              onClick={() => void openWorkspace("Opening the Tasks home...", home.trim(), "open")}
             >
               Open existing home
             </Button>
-            {current && (
+            {returnHome && (
               <Button
                 type="button"
                 variant="ghost"
                 disabled={busy !== null}
-                onClick={() => void run("Opening Tasks...", current, "launch")}
+                onClick={() => void openWorkspace("Opening Tasks...", returnHome, "launch")}
               >
                 Back to current home
               </Button>
