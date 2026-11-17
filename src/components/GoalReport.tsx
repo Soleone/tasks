@@ -230,7 +230,12 @@ function Report({
       return;
     }
     if (event.altKey || event.shiftKey) return;
-    const mod = event.ctrlKey || event.metaKey;
+    if (event.ctrlKey || event.metaKey) {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      select(shiftDay(day, range, event.key === "ArrowLeft" ? -1 : 1));
+      return;
+    }
     const across = range === "month" ? 1 : 7;
     const down = range === "month" ? 7 : 1;
     const step = new Map([
@@ -238,23 +243,20 @@ function Report({
       ["ArrowRight", across],
       ["ArrowUp", -down],
       ["ArrowDown", down],
-    ]);
-    if (event.key === "Tab" && !mod) event.preventDefault();
-    else if (event.key === "Escape" && !mod) {
+    ]).get(event.key);
+    if (event.key === "Tab") event.preventDefault();
+    else if (event.key === "Escape") {
       event.preventDefault();
       onClose();
-    } else if (event.key === "Enter" && !mod) {
+    } else if (event.key === "Enter") {
       event.preventDefault();
       open(day);
-    } else if (event.key === "Home" && !mod) {
+    } else if (event.key === "Home") {
       event.preventDefault();
       select(span.today);
-    } else if (mod && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+    } else if (step !== undefined) {
       event.preventDefault();
-      select(shiftDay(day, range, event.key === "ArrowLeft" ? -1 : 1));
-    } else if (!mod && step.has(event.key)) {
-      event.preventDefault();
-      select(addDays(day, step.get(event.key)!));
+      select(addDays(day, step));
     }
   });
   useEffect(() => {
