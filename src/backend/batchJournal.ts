@@ -223,7 +223,7 @@ export function guardBatch(intent: BatchIntent, recovery: boolean): CanonicalSna
   try {
     const snapshot = readCanonicalRoot(intent.root.rootPath);
     const fail = (code: string): never => {
-      throw new CommandError(recovery ? "RECOVERY_CONFLICT" : code, "batch baseline changed");
+      throw new CommandError(code, "batch baseline changed");
     };
     if (
       snapshot.rootPath !== intent.root.rootPath ||
