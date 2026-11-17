@@ -56,7 +56,7 @@ function problemFor(home: string, mode: Mode, reason: unknown): Problem {
     };
   if (!(reason instanceof HomeError)) return problem;
   if (reason.code === "HOME_MISSING" || reason.code === "EMPTY_SYNC_FOLDER")
-    return { ...problem, title: "Tasks home not found", message: reason.message, choice: "retry" };
+    return { ...problem, title: "Tasks home not found", choice: "retry" };
   if (reason.code === "FOLDER_IN_USE") return { ...problem, choice: "retry" };
   if (reason.code === "HOME_MOVED")
     return {
@@ -192,7 +192,7 @@ export default function DesktopWorkspace(): ReactElement | null {
 
   if (workspace) return <App workspace={workspace} />;
   // Opening the remembered home shows nothing, so setup appears only when it is needed.
-  if (!showForm && !problem) return null;
+  if (!showForm) return null;
 
   const separator = home.includes("\\") ? "\\" : "/";
   return (
@@ -229,75 +229,73 @@ export default function DesktopWorkspace(): ReactElement | null {
           )}
         </Alert>
       )}
-      {showForm && (
-        <form onSubmit={submit} className="flex flex-col gap-6">
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="tasks-home">Tasks home</FieldLabel>
-              <div className="flex gap-2">
-                <Input
-                  ref={homeRef}
-                  id="tasks-home"
-                  value={home}
-                  onChange={(event) => setHome(event.target.value)}
-                  required
-                  autoComplete="off"
-                  spellCheck={false}
+      <form onSubmit={submit} className="flex flex-col gap-6">
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="tasks-home">Tasks home</FieldLabel>
+            <div className="flex gap-2">
+              <Input
+                ref={homeRef}
+                id="tasks-home"
+                value={home}
+                onChange={(event) => setHome(event.target.value)}
+                required
+                autoComplete="off"
+                spellCheck={false}
+                disabled={busy !== null}
+              />
+              {!isMobileApp() && (
+                <Button
+                  type="button"
+                  variant="outline"
                   disabled={busy !== null}
-                />
-                {!isMobileApp() && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy !== null}
-                    onClick={() =>
-                      void pickHome(home.trim()).then(
-                        (picked) => {
-                          if (picked) setHome(picked);
-                          homeRef.current?.focus();
-                        },
-                        (reason: unknown) => setProblem(problemFor(home, "open", reason)),
-                      )
-                    }
-                  >
-                    Browse…
-                  </Button>
-                )}
-              </div>
-              <FieldDescription>
-                Add only its sync folder to Syncthing, never the home itself:{" "}
-                <code className="wrap-anywhere">
-                  {home.trim().replace(/[\\/]+$/, "")}
-                  {separator}sync
-                </code>
-              </FieldDescription>
-            </Field>
-          </FieldGroup>
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" disabled={busy !== null}>
-              Create home
-            </Button>
+                  onClick={() =>
+                    void pickHome(home.trim()).then(
+                      (picked) => {
+                        if (picked) setHome(picked);
+                        homeRef.current?.focus();
+                      },
+                      (reason: unknown) => setProblem(problemFor(home, "open", reason)),
+                    )
+                  }
+                >
+                  Browse…
+                </Button>
+              )}
+            </div>
+            <FieldDescription>
+              Add only its sync folder to Syncthing, never the home itself:{" "}
+              <code className="wrap-anywhere">
+                {home.trim().replace(/[\\/]+$/, "")}
+                {separator}sync
+              </code>
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" disabled={busy !== null}>
+            Create home
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy !== null || !home.trim()}
+            onClick={() => void run("Opening the Tasks home...", home.trim(), "open")}
+          >
+            Open existing home
+          </Button>
+          {current && (
             <Button
               type="button"
-              variant="outline"
-              disabled={busy !== null || !home.trim()}
-              onClick={() => void run("Opening the Tasks home...", home.trim(), "open")}
+              variant="ghost"
+              disabled={busy !== null}
+              onClick={() => void run("Opening Tasks...", current, "launch")}
             >
-              Open existing home
+              Back to current home
             </Button>
-            {current && (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={busy !== null}
-                onClick={() => void run("Opening Tasks...", current, "launch")}
-              >
-                Back to current home
-              </Button>
-            )}
-          </div>
-        </form>
-      )}
+          )}
+        </div>
+      </form>
     </main>
   );
 }
