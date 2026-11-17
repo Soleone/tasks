@@ -31,19 +31,17 @@ fn home_pointer_read(app: AppHandle) -> Result<Option<String>, String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(format!("Could not read {}: {error}", path.display())),
     };
-    let value: serde_json::Value = serde_json::from_str(&text).map_err(|_| {
-        format!(
-            "{} is damaged; choose the Tasks home again.",
-            path.display()
-        )
-    })?;
-    match value.get("home").and_then(|home| home.as_str()) {
-        Some(home) if !home.trim().is_empty() => Ok(Some(home.to_string())),
-        _ => Err(format!(
-            "{} is damaged; choose the Tasks home again.",
-            path.display()
-        )),
-    }
+    serde_json::from_str::<serde_json::Value>(&text)
+        .ok()
+        .and_then(|value| value.get("home")?.as_str().map(str::to_string))
+        .filter(|home| !home.trim().is_empty())
+        .map(Some)
+        .ok_or_else(|| {
+            format!(
+                "{} is damaged; choose the Tasks home again.",
+                path.display()
+            )
+        })
 }
 
 /// Remembers the Tasks home, replacing the pointer whole so a crash never leaves half of it.
