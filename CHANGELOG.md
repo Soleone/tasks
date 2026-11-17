@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.1](https://github.com/Soleone/tasks/compare/v0.7.0...v0.7.1) (2026-11-17)
+
+### Bug Fixes
+
+* explain how to correct activity query arguments ([6db4f01](https://github.com/Soleone/tasks/commit/6db4f015968d113d8bb838dd1dce4501174343e2))
+* explain how to resolve extra task categories and due dates ([ca2a16f](https://github.com/Soleone/tasks/commit/ca2a16f80485f4ac31553e26b415babc00fcf1c4))
+* remove duplicate Tailwind lockfile entries ([5a6eeb2](https://github.com/Soleone/tasks/commit/5a6eeb2017e33cd7a4fdbaa842c2b7eaa2c30884))
+* Tasks opens again after the goal report closed a day, and the home setup screen shows the version and offers updates ([ddef5b1](https://github.com/Soleone/tasks/commit/ddef5b180b04031a59920bad3d82feb1cae271fa))
+
 ## [0.7.0](https://github.com/Soleone/tasks/compare/v0.6.2...v0.7.0) (2026-11-15)
 
 ### Features
