@@ -83,27 +83,28 @@ function flyCheck(taskId: string): { animation: Animation; target: SVGElement } 
     const t = index / FRAMES;
     const eased = pullIn(t);
     const point = curvePoint(from, bend, to, eased);
-    const scale = 1.25 - 0.25 * Math.min(1, Math.max(0, eased));
+    const scale = 1.25 - 0.25 * Math.max(0, eased);
     return {
       offset: t,
       opacity: Math.min(1, t / 0.1),
       transform: `translate(${point.x - iconBox.width / 2}px, ${point.y - iconBox.height / 2}px) scale(${scale})`,
     };
   });
-  const flight = ghost.animate(keyframes, { duration: FLIGHT_MS, easing: "linear" });
+  const flight = ghost.animate(keyframes, FLIGHT_MS);
   const remove = () => ghost.remove();
   flight.finished.then(remove, remove);
   return { animation: flight, target: icon };
 }
 
-const bump = (icon: Element | null): Animation | undefined =>
-  icon?.animate(
+function bump(icon: Element): void {
+  icon.animate(
     [{ transform: "scale(1)" }, { transform: "scale(1.3)" }, { transform: "scale(1)" }],
     {
       duration: 220,
       easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
     },
   );
+}
 
 /**
  * After a goal ring takes a completion, a dot in its color carries it on to the done count, whose
@@ -160,18 +161,13 @@ export function useDoneFlights() {
       });
   }, []);
 
-  function setLanding(taskId: string, landing: boolean): void {
-    setLandingTaskIds((previous) => {
-      const next = new Set(previous);
-      if (landing) next.add(taskId);
-      else next.delete(taskId);
-      return next;
-    });
-  }
-
   function land(taskId: string): void {
     flights.current.delete(taskId);
-    setLanding(taskId, false);
+    setLandingTaskIds((previous) => {
+      const next = new Set(previous);
+      next.delete(taskId);
+      return next;
+    });
   }
 
   /** Sends a completed row's check to the count partway into its slide, which starts at `slideAtMs`. */
@@ -181,7 +177,7 @@ export function useDoneFlights() {
     // jsdom has no Web Animations; there and with reduced motion the count rises at once.
     if (typeof document.body.animate !== "function") return;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    setLanding(taskId, true);
+    setLandingTaskIds((previous) => new Set(previous).add(taskId));
     const flight: Flight = {
       timer: window.setTimeout(() => {
         const flown = flyCheck(taskId);
