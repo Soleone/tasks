@@ -161,13 +161,6 @@ function moveSelection(event: KeyboardEvent, actions: HomeShortcutActions): bool
   return true;
 }
 
-function undo(event: KeyboardEvent, actions: HomeShortcutActions): void {
-  if (!actions.canUndoStatus) return;
-  event.preventDefault();
-  practice("undo.latest");
-  actions.undoStatus();
-}
-
 function redo(event: KeyboardEvent, actions: HomeShortcutActions): void {
   if (!actions.canRedo) return;
   event.preventDefault();
@@ -206,7 +199,10 @@ function runBinding(id: BindingId, event: KeyboardEvent, actions: HomeShortcutAc
     case "settings.open":
       return;
     case "undo.latest":
-      return undo(event, actions);
+      if (!actions.canUndoStatus) return;
+      event.preventDefault();
+      practice("undo.latest");
+      return actions.undoStatus();
     case "redo.latest":
       return redo(event, actions);
     case "status.forward":
