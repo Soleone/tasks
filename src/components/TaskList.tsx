@@ -214,24 +214,24 @@ type TaskListProps = {
   onTaskUpdated: (task: TaskView) => void;
   onTasksUpdated: (tasks: TaskView[]) => void;
   /** `wasActiveTaskId` is the active task when the change began, before an optimistic row moved. */
-  onOperation?: (
+  onOperation: (
     operationId: string,
     previous: TaskView[],
     current: TaskView[],
     wasActiveTaskId?: string | null,
   ) => void;
-  onStatusChanged?: (previous: TaskView, current: TaskView, wasActive: boolean) => void;
-  onStatusBatchChanged?: (
+  onStatusChanged: (previous: TaskView, current: TaskView, wasActive: boolean) => void;
+  onStatusBatchChanged: (
     previous: TaskView[],
     current: TaskView[],
     wasActiveTaskId: string | null,
   ) => void;
-  canUndoStatus?: boolean;
-  onUndoStatus?: () => void;
-  canRedo?: boolean;
-  onRedo?: () => void;
+  canUndoStatus: boolean;
+  onUndoStatus: () => void;
+  canRedo: boolean;
+  onRedo: () => void;
   onCanceled: (task: TaskView) => void;
-  onCanceledMany?: (previous: TaskView[], current: TaskView[]) => void;
+  onCanceledMany: (previous: TaskView[], current: TaskView[]) => void;
   onAddBlocker: (task: TaskView) => void;
   onMoveUnder: (task: TaskView) => void;
 };
@@ -363,18 +363,8 @@ export function TaskList({
   // Replies land after later renders; these reach the handlers of the latest one.
   const showTaskUpdate = useStableHandler(onTaskUpdated);
   const announce = useStableHandler(onAnnounce);
-  const recordOperation = useStableHandler(
-    (
-      operationId: string,
-      previous: TaskView[],
-      current: TaskView[],
-      wasActiveTaskId?: string | null,
-    ) => onOperation?.(operationId, previous, current, wasActiveTaskId),
-  );
-  const statusChanged = useStableHandler(
-    (previous: TaskView, current: TaskView, wasActive: boolean) =>
-      onStatusChanged?.(previous, current, wasActive),
-  );
+  const recordOperation = useStableHandler(onOperation);
+  const statusChanged = useStableHandler(onStatusChanged);
   const toolbarModeRef = useRef<ToolbarMode | null>(null);
   const [listFocused, setListFocused] = useState(false);
   const composerOpenRef = useRef(composer !== null);
@@ -1291,7 +1281,7 @@ export function TaskList({
       if (result.changed) {
         const previous = selected.filter((task) => selectedIds.includes(task.id));
         const current = result.tasks.filter((task) => selectedIds.includes(task.id));
-        if (result.operationId) onOperation?.(result.operationId, previous, current);
+        if (result.operationId) onOperation(result.operationId, previous, current);
         // The wave runs down the list, so it follows the visible order of the selection.
         const doneNow = new Set(
           current.filter((task) => task.status === "done").map((task) => task.id),
@@ -1301,7 +1291,7 @@ export function TaskList({
             .filter((task) => task.status !== "done" && doneNow.has(task.id))
             .map((task) => task.id),
         );
-        onStatusBatchChanged?.(previous, current, activeTask?.id ?? null);
+        onStatusBatchChanged(previous, current, activeTask?.id ?? null);
       }
       onAnnounce(
         `${result.tasks.length} task${result.tasks.length === 1 ? "" : "s"} ${actionLabel}`,
@@ -1441,8 +1431,8 @@ export function TaskList({
       const result = await deleteTask(task.id, task.version, { idempotencyKey: receipt.key });
       deleteReceipts.current.delete(task.id);
       if (result.changed !== false) {
-        if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
-        onStatusChanged?.(task, result.task, activeTask?.id === task.id);
+        if (result.operationId) onOperation(result.operationId, [task], [result.task]);
+        onStatusChanged(task, result.task, activeTask?.id === task.id);
       }
       onCanceled(result.task);
     } catch (caught) {
@@ -1478,10 +1468,9 @@ export function TaskList({
     try {
       const result = await transitionTasks(items, { idempotencyKey: receipt.key });
       batchTransitionReceiptRef.current = null;
-      if (result.operationId) onOperation?.(result.operationId, selected, result.tasks);
-      onStatusBatchChanged?.(selected, result.tasks, activeTask?.id ?? null);
-      if (onCanceledMany) onCanceledMany(selected, result.tasks);
-      else result.tasks.forEach((task) => onCanceled(task));
+      if (result.operationId) onOperation(result.operationId, selected, result.tasks);
+      onStatusBatchChanged(selected, result.tasks, activeTask?.id ?? null);
+      onCanceledMany(selected, result.tasks);
       onAnnounce(`Canceled ${result.tasks.length} tasks`);
     } catch (caught) {
       if (caught instanceof EditorError && caught.code === "STALE_TASK_VERSION") {
@@ -1600,10 +1589,10 @@ export function TaskList({
       hasActiveFilters,
       activeTask,
       visibleRowCount: visibleRows.length,
-      canUndoStatus: Boolean(canUndoStatus),
-      undoStatus: () => onUndoStatus?.(),
-      canRedo: Boolean(canRedo),
-      redo: () => onRedo?.(),
+      canUndoStatus,
+      undoStatus: onUndoStatus,
+      canRedo,
+      redo: onRedo,
       deleteSelectedTasks,
       returnToList,
       clearAllFilters: onClearAllFilters,
@@ -1782,13 +1771,13 @@ export function TaskList({
         taskActions={{
           activeTask,
           disabled: composer !== null,
-          canUndo: Boolean(canUndoStatus),
+          canUndo: canUndoStatus,
           onUndo: () => {
             practice("undo.latest", "pointer");
-            onUndoStatus?.();
+            onUndoStatus();
           },
-          canRedo: Boolean(canRedo),
-          onRedo: () => onRedo?.(),
+          canRedo,
+          onRedo,
           onAddBlocker: (task) => {
             practice("pick.blocker", "pointer");
             returnToList();
