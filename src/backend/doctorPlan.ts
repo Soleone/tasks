@@ -384,7 +384,6 @@ export function buildDoctorPlan(
       ...(dependenciesChanged ? { dependencyIds: task.dependencyIds } : {}),
     });
   }
-  prospectiveGraph(nextTasks);
   return {
     format: "taskdb.doctor-plan",
     version: 1,
