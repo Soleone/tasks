@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.3](https://github.com/Soleone/tasks/compare/v0.7.2...v0.7.3) (2026-11-19)
+
+### Features
+
+* **goals:** fly week dots into report from any entry point ([fbcdfb4](https://github.com/Soleone/tasks/commit/fbcdfb4b6b535310400f53502a27afd7c194f10c))
+
+### Bug Fixes
+
+* **edit:** skip the save animation when an edit changed nothing ([7d18b69](https://github.com/Soleone/tasks/commit/7d18b69fc8792ec95792e3dde6d2d694eabded5e))
+* **settings:** size Settings to its sections, not the long Keys list ([ac83627](https://github.com/Soleone/tasks/commit/ac83627694951f6d974cf55425a6ac7e28e49d55))
+
 ## [0.7.2](https://github.com/Soleone/tasks/compare/v0.7.1...v0.7.2) (2026-11-19)
 
 ### Features
