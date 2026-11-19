@@ -5,7 +5,7 @@ import type { CanonicalSnapshot } from "./canonicalReader.js";
 
 export function directoryIdentity(directory: string): string {
   const stat = lstatSync(directory, { bigint: true });
-  if (!stat.isDirectory() || stat.isSymbolicLink())
+  if (!stat.isDirectory())
     throw new CommandError("INVALID_ARGUMENT", "expected a physical directory");
   return `${stat.dev}:${stat.ino}`;
 }
