@@ -31,6 +31,8 @@ import {
   rangeStats,
   reportSpan,
   shiftDay,
+  standouts,
+  usualDone,
   yearWeeks,
   type ReportRange,
   type ReportSpan,
@@ -141,6 +143,8 @@ function Report({
     [judged, period],
   );
   const streak = useMemo(() => currentStreak(settings, done, span), [settings, done, span]);
+  const usual = useMemo(() => usualDone(settings, done, span.today), [settings, done, span.today]);
+  const standout = useMemo(() => standouts(judged, usual, period), [judged, usual, period]);
   const today = useMemo(() => goalsOn(settings, done, span.today), [settings, done, span.today]);
   const weekly = today.goals.filter((goal) => goal.week);
   const [tip, setTip] = useState<{ day: string; anchor: HTMLElement } | null>(null);
@@ -356,6 +360,7 @@ function Report({
             span={span}
             day={day}
             weekly={weekly}
+            standout={standout}
             onTip={setTip}
             onSelect={select}
             onOpen={open}
@@ -395,7 +400,14 @@ function Report({
         <TooltipTrigger render={<span className="sr-only">Day details</span>} />
         {tip && judged.get(tip.day) ? (
           <AnchoredTooltipContent anchor={tip.anchor} side="bottom" sideOffset={6}>
-            <DayTip day={tip.day} goals={judged.get(tip.day)!} today={span.today} />
+            <DayTip
+              day={tip.day}
+              goals={judged.get(tip.day)!}
+              today={span.today}
+              usual={usual}
+              best={standout.get(tip.day)}
+              range={range}
+            />
           </AnchoredTooltipContent>
         ) : null}
       </Tooltip>
@@ -471,8 +483,15 @@ function status(goals: GoalsToday): string {
 
 const WEEKDAY_NAMES = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-function MonthGrid(props: GridProps & { month: string; weekly: GoalProgress[] }): ReactElement {
-  const { weeks, judged, span, month, weekly } = props;
+function MonthGrid(
+  props: GridProps & {
+    month: string;
+    weekly: GoalProgress[];
+    /** The standout days, each true when it's the month's best. */
+    standout: ReadonlyMap<string, boolean>;
+  },
+): ReactElement {
+  const { weeks, judged, span, day, month, weekly, standout } = props;
   const columns =
     weekly.length > 0 ? "repeat(7, minmax(0, 1fr)) 3.5rem" : "repeat(7, minmax(0, 1fr))";
   return (
@@ -528,30 +547,33 @@ function MonthGrid(props: GridProps & { month: string; weekly: GoalProgress[] })
                   {...dayProps(shown, props, row, col)}
                   data-this-week={span.today >= week[0] && span.today <= week[6] ? "" : undefined}
                   className={cn(
-                    "relative h-14 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-16",
-                    goals ? "cursor-pointer hover:bg-muted" : "cursor-default",
+                    "group relative h-14 rounded-lg outline-none [container-type:size] sm:h-16",
+                    goals ? "cursor-pointer" : "cursor-default",
                     !shown.startsWith(month) && "opacity-35",
-                    shown === span.today && "inset-ring inset-ring-primary/70",
                   )}
                 >
+                  {/* The selected day's tint, square whatever the cell's shape. */}
                   <span
+                    aria-hidden="true"
                     className={cn(
-                      "absolute top-1 left-2 z-1 text-2xs tabular-nums max-sm:left-1.5",
-                      shown === span.today ? "text-primary" : "text-muted-foreground",
-                      goals === null && shown > span.today && "opacity-55",
+                      "absolute top-1/2 left-1/2 size-[min(100cqw,100cqh)] -translate-1/2 rounded-lg",
+                      shown === day ? "bg-primary/16" : goals && "group-hover:bg-muted",
                     )}
-                  >
-                    {Number(shown.slice(8))}
-                  </span>
+                  />
+                  {shown === span.today && (
+                    <span className="absolute top-0.5 left-1/2 z-1 -translate-x-1/2 text-3xs font-medium text-foreground/85">
+                      Today
+                    </span>
+                  )}
                   {linked && (
                     <span
                       aria-hidden="true"
                       data-thread={shown}
                       data-to={week[col + 1]}
-                      className="pointer-events-none absolute top-[calc(50%-4px)] left-1/2 -mt-px h-0.5 w-[calc(100%+var(--gap))] origin-right rounded-full bg-success/60 max-sm:top-[calc(50%+2px)]"
+                      className="pointer-events-none absolute top-[calc(50%-1px)] left-1/2 -mt-px h-0.5 w-[calc(100%+var(--gap))] origin-right rounded-full bg-success/60 max-sm:top-[calc(50%+2px)]"
                     />
                   )}
-                  {goals && <DayMark goals={goals} today={shown === span.today} />}
+                  <DayMark date={Number(shown.slice(8))} goals={goals} best={standout.get(shown)} />
                 </button>
               );
             })}
@@ -661,59 +683,101 @@ function WeekTip({
   );
 }
 
-/** A day of the month: what got done in a ring of its goals, solid once met, then a pip per goal it met. */
-function DayMark({ goals, today }: { goals: GoalsToday; today: boolean }): ReactElement {
-  const met = dayMet(goals);
-  const pips = pipsOf(goals);
+/**
+ * A day of the month: its date in a ring of its goals, solid once met, ringed again on a standout
+ * day and twice on the month's best (`goals.report-standout`), then a pip per goal it met.
+ */
+function DayMark({
+  date,
+  goals,
+  best,
+}: {
+  date: number;
+  /** Null for a day after today or before the first. */
+  goals: GoalsToday | null;
+  /** Set on a standout day: true on the month's best. */
+  best: boolean | undefined;
+}): ReactElement {
+  const met = goals !== null && dayMet(goals);
+  const pips = goals ? pipsOf(goals) : [];
+  // One generic goal's pip would only repeat the solid ring.
+  const pipped = goals !== null && (goals.goals.length > 1 || goals.goals[0]?.slug != null);
   return (
     <>
-      <span className="absolute top-[calc(50%-4px)] left-1/2 z-1 grid size-7.5 -translate-1/2 place-items-center max-sm:top-[calc(50%+2px)] max-sm:size-6">
-        <svg
-          viewBox="0 0 36 36"
-          aria-hidden="true"
-          className="absolute inset-0 size-full -rotate-90"
-        >
-          <circle
-            cx="18"
-            cy="18"
-            r="16.5"
-            className={cn("fill-success transition-opacity", !met && "opacity-0")}
-          />
-          <circle
-            cx="18"
-            cy="18"
-            r="15"
-            fill="none"
-            strokeWidth="3"
-            className={today ? "stroke-primary/35" : "stroke-muted-foreground/30"}
-          />
-          <circle
-            cx="18"
-            cy="18"
-            r="15"
-            fill="none"
-            strokeWidth="3"
-            strokeLinecap="round"
-            pathLength={100}
-            strokeDasharray="100"
-            strokeDashoffset={100 - dayShare(goals) * 100}
-            className={cn(
-              "stroke-success transition-all duration-500",
-              dayShare(goals) === 0 && "opacity-0",
-              !met && "opacity-75",
+      <span className="absolute top-[calc(50%-1px)] left-1/2 z-1 grid size-7.5 -translate-1/2 place-items-center max-sm:top-[calc(50%+2px)] max-sm:size-6">
+        {goals && (
+          <svg
+            viewBox="0 0 36 36"
+            aria-hidden="true"
+            className="absolute inset-0 size-full -rotate-90 overflow-visible"
+          >
+            <circle
+              cx="18"
+              cy="18"
+              r="16.5"
+              className={cn("fill-success transition-opacity", !met && "opacity-0")}
+            />
+            <circle
+              cx="18"
+              cy="18"
+              r="15"
+              fill="none"
+              strokeWidth="3"
+              className="stroke-muted-foreground/30"
+            />
+            <circle
+              cx="18"
+              cy="18"
+              r="15"
+              fill="none"
+              strokeWidth="3"
+              strokeLinecap="round"
+              pathLength={100}
+              strokeDasharray="100"
+              strokeDashoffset={100 - dayShare(goals) * 100}
+              className={cn(
+                "stroke-success transition-all duration-500",
+                dayShare(goals) === 0 && "opacity-0",
+                !met && "opacity-75",
+              )}
+            />
+            {best !== undefined && (
+              <circle
+                cx="18"
+                cy="18"
+                r="19.5"
+                fill="none"
+                strokeWidth="1.5"
+                className="stroke-primary"
+              />
             )}
-          />
-        </svg>
+            {best && (
+              <circle
+                cx="18"
+                cy="18"
+                r="22.5"
+                fill="none"
+                strokeWidth="1"
+                className="stroke-primary opacity-45"
+              />
+            )}
+          </svg>
+        )}
         <span
           className={cn(
             "relative text-xs tabular-nums max-sm:text-3xs",
-            met ? "font-semibold text-background" : "text-foreground",
+            met
+              ? "font-semibold text-background"
+              : goals?.done
+                ? "text-foreground"
+                : "text-muted-foreground",
+            goals === null && "opacity-55",
           )}
         >
-          {goals.done || ""}
+          {date}
         </span>
       </span>
-      {pips.length > 0 && (
+      {pipped && pips.length > 0 && (
         <span className="absolute inset-x-0 bottom-1.5 z-1 flex justify-center gap-0.75 max-sm:bottom-1 max-sm:gap-0.5">
           {pips.map((goal) => (
             <span
@@ -807,15 +871,22 @@ function yearShade(goals: GoalsToday | null): string | undefined {
   return goals.done === 0 ? "bg-muted/70" : "bg-success/(--share)";
 }
 
-/** A day's tooltip: its date and how it went, then each goal's numbers. */
+/** A day's tooltip: its date and how it went, each goal's numbers, then how it compares to a usual day. */
 function DayTip({
   day,
   goals,
   today,
+  usual,
+  best,
+  range,
 }: {
   day: string;
   goals: GoalsToday;
   today: string;
+  usual: number;
+  /** Set on a standout day: true on the best of the month or year shown. */
+  best: boolean | undefined;
+  range: ReportRange;
 }): ReactElement {
   const met = dayMet(goals);
   const pairs = goals.goals.map((goal): [number, number] =>
@@ -824,7 +895,10 @@ function DayTip({
   return (
     <Columns className="flex min-w-48 flex-col gap-1" pairs={pairs}>
       <Line>
-        <span className="font-medium">{day === today ? "Today" : formatDueDate(day, today)}</span>
+        <span className="font-medium">
+          {day === today ? "Today" : formatDueDate(day, today)}
+          <span className="font-normal opacity-70"> · {goals.done} done</span>
+        </span>
         <span className={cn("ml-3", met ? "text-success-inverse" : "opacity-70")}>
           {met ? "Met" : goals.done === 0 ? "Nothing done" : status(goals)}
         </span>
@@ -843,6 +917,14 @@ function DayTip({
           )}
         </Line>
       ))}
+      {best !== undefined && (
+        <Line>
+          <span className="font-medium">
+            {usual > 0 ? `${(goals.done / usual).toFixed(1)}× your usual day` : "A standout day"}
+          </span>
+          {best && <span className="ml-3 font-medium">Best this {range}</span>}
+        </Line>
+      )}
       <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5 opacity-80">
         What got done <Kbd>Enter</Kbd>
       </span>

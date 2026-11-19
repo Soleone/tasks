@@ -140,6 +140,50 @@ export function rangeStats(judged: ReadonlyMap<string, GoalsToday | null>): Rang
   return stats;
 }
 
+/** How far back a usual day looks (`goals.report-standout`). */
+const USUAL_DAYS = 56;
+
+/** What a usual day gets done lately: the median of the eight weeks before today, over days that saw anything done. */
+export function usualDone(
+  settings: SharedSettings,
+  done: readonly DoneTask[],
+  today: string,
+): number {
+  const from = addDays(today, -USUAL_DAYS);
+  const counts = new Map<string, number>();
+  for (const task of done) {
+    if (task.closedAt === null) continue;
+    const day = dayOf(settings, new Date(task.closedAt));
+    if (day >= from && day < today) counts.set(day, (counts.get(day) ?? 0) + 1);
+  }
+  const sorted = [...counts.values()].sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  const middle = sorted.length >> 1;
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+/**
+ * The shown days well past a usual one (`goals.report-standout`): met, with half as much again
+ * done and at least two past the daily target. Each is marked best when no day of `month` beat it.
+ */
+export function standouts(
+  judged: ReadonlyMap<string, GoalsToday | null>,
+  usual: number,
+  month: string,
+): Map<string, boolean> {
+  const days = [...judged].filter(
+    (entry): entry is [string, GoalsToday] =>
+      entry[1] !== null &&
+      dayMet(entry[1]) &&
+      entry[1].done >= Math.max(Math.ceil(usual * 1.5), dayProgress(entry[1]).target + 2),
+  );
+  const top = Math.max(
+    0,
+    ...days.filter(([day]) => day.startsWith(month)).map(([, goals]) => goals.done),
+  );
+  return new Map(days.map(([day, goals]) => [day, day.startsWith(month) && goals.done === top]));
+}
+
 /** The same day of the month a month or year away, on the month's last day when it has fewer. */
 export function shiftDay(day: string, range: ReportRange, step: number): string {
   const [year, month, date] = day.split("-").map(Number);
