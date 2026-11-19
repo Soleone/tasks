@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.4](https://github.com/Soleone/tasks/compare/v0.7.3...v0.7.4) (2026-11-19)
+
+### Features
+
+* **composer:** place description beside key hints under title ([8f1df83](https://github.com/Soleone/tasks/commit/8f1df83263ecf3d304fe6ceaaebb2e8e3fa74681))
+
 ## [0.7.3](https://github.com/Soleone/tasks/compare/v0.7.2...v0.7.3) (2026-11-19)
 
 ### Features
