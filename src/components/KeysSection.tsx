@@ -94,7 +94,10 @@ export function KeysSection(): ReactElement {
   }
 
   return (
-    <section aria-labelledby="settings-keys" className="flex flex-col gap-4 rounded-lg border p-4">
+    <section
+      aria-labelledby="settings-keys"
+      className="flex min-h-0 flex-1 flex-col gap-4 rounded-lg border p-4"
+    >
       <div className="flex flex-col gap-1">
         <h2 id="settings-keys" className="flex items-center gap-2 text-sm font-medium">
           <Keyboard aria-hidden="true" className="size-4 text-muted-foreground" />
@@ -122,7 +125,10 @@ export function KeysSection(): ReactElement {
           <FieldLabel htmlFor="settings-keys-changed">Changed only</FieldLabel>
         </Field>
       </div>
-      <div className="max-h-96 overflow-y-auto overscroll-contain rounded-md border" data-keys-list>
+      <div
+        className="min-h-40 flex-1 overflow-y-auto overscroll-contain rounded-md border"
+        data-keys-list
+      >
         {GROUPS.map((group) => {
           const rows = shown.filter((binding) => binding.group === group);
           if (!rows.length) return null;

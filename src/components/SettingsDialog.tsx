@@ -373,8 +373,13 @@ export function SettingsDialog({
               <GoalsSection open={open} />
             </StackedTabsContent>
 
-            <StackedTabsContent value="keys" tabIndex={-1}>
-              <div className="flex flex-col gap-4">
+            {/* Keys has no height of its own: it fills what the other tabs set, and its list scrolls. */}
+            <StackedTabsContent
+              value="keys"
+              tabIndex={-1}
+              className="h-0 min-h-full overflow-y-auto"
+            >
+              <div className="flex h-full flex-col gap-4">
                 {isDesktopApp() && <GlobalHotkeysSection />}
                 <KeysSection />
               </div>
