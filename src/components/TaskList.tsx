@@ -154,7 +154,7 @@ type TaskListProps = {
   onToggleLens: (kind: ListLens["kind"]) => void;
   onWidenDoneLens: (backward?: boolean) => void;
   /** Opens the goal report, which takes the list's place while `hidden`. */
-  onOpenGoalReport: (range: ReportRange, from?: "week") => void;
+  onOpenGoalReport: (range: ReportRange) => void;
   hidden: boolean;
   goals: GoalsToday | null;
   /** This week day by day, while the done lens shows today (`goals.report-open`). */
@@ -1852,7 +1852,7 @@ export function TaskList({
         }}
         goals={goals}
         week={week}
-        onOpenGoalReport={() => onOpenGoalReport("month", "week")}
+        onOpenGoalReport={() => onOpenGoalReport("month")}
         onGoalLens={onGoalLens}
         clearStatusFilter={clearStatusFilter}
         clearCategoryFilter={clearCategoryFilter}

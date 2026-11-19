@@ -671,17 +671,18 @@ export default function App({
     setAnnouncement(`Showing tasks ${lensPhrase(next)}`);
   }
 
-  /** Opens the goal report on today, from the done count's ring or the done lens's week. */
-  function openGoalReport(range: ReportRange, from: "count" | "week" = "count"): void {
+  /** Opens the goal report on today, flying in from the done lens's week dots when they show. */
+  function openGoalReport(range: ReportRange): void {
     if (!hasGoals(sharedSettings)) {
       showTaskToast("Set a goal in Settings › Goals to see how your days went");
       return;
     }
+    const dots = weekDots();
     setHelpOpen(false);
     setReport({
       range,
       day: dayOf(sharedSettings, new Date()),
-      takeOff: from === "week" ? { kind: "week", dots: weekDots() } : { kind: "count" },
+      takeOff: dots.size > 0 ? { kind: "week", dots } : { kind: "count" },
     });
     setAnnouncement("Showing the goal report");
   }
