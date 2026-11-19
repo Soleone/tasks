@@ -11,8 +11,7 @@ function isFontSizeIncrease(value: number): value is FontSizeIncrease {
 }
 
 export function readStoredFontSizeIncrease(): FontSizeIncrease {
-  const stored = readPreference(FONT_SIZE_STORAGE_KEY);
-  const value = stored === null ? 0 : Number(stored);
+  const value = Number(readPreference(FONT_SIZE_STORAGE_KEY));
   return isFontSizeIncrease(value) ? value : 0;
 }
 
