@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.5](https://github.com/Soleone/tasks/compare/v0.7.4...v0.7.5) (2026-11-19)
+
+### Features
+
+* **tooltip:** give tooltips a card surface on dark themes ([1f0f0bb](https://github.com/Soleone/tasks/commit/1f0f0bb54a9f36d4e635bc7ba9d89429c376fe93))
+
 ## [0.7.4](https://github.com/Soleone/tasks/compare/v0.7.3...v0.7.4) (2026-11-19)
 
 ### Features
