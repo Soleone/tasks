@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.2](https://github.com/Soleone/tasks/compare/v0.7.1...v0.7.2) (2026-11-19)
+
+### Features
+
+* **goals:** mark standout days in the goal report ([9c5717c](https://github.com/Soleone/tasks/commit/9c5717caee1c31d5d163fd0d45adc8b37b895a0c))
+
 ## [0.7.1](https://github.com/Soleone/tasks/compare/v0.7.0...v0.7.1) (2026-11-17)
 
 ### Bug Fixes
