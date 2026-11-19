@@ -803,29 +803,85 @@ export function TaskComposer({
           )}
         </div>
       </div>
-      {logged && !task ? (
-        <LoggedWhenPill
-          when={when}
-          day={loggedDay}
-          onWhen={setWhen}
-          onDay={setLoggedDay}
-          pillRef={whenPill}
-          onKeyDown={(event) => {
-            if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
-            if (event.target !== whenPill.current && !event.shiftKey) return;
-            event.preventDefault();
-            focusAfter("when", event.shiftKey);
-          }}
-        />
-      ) : null}
-      {/* The shorthand hint on a bare task; the mouse fallbacks sit at the end of its line. */}
-      {classification.category === null &&
-      classification.tags.length === 0 &&
-      classification.due === null ? (
-        <span className="flex min-h-5 grow items-center text-xs text-muted-foreground">
-          @category #tags !date
-        </span>
-      ) : null}
+      {/* Line 2 beside the key hints, so a description starts right under the title. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 empty:hidden @max-md:basis-full">
+        <div className="flex flex-wrap items-start gap-x-2 gap-y-1 empty:hidden">
+          {logged && !task ? (
+            <LoggedWhenPill
+              when={when}
+              day={loggedDay}
+              onWhen={setWhen}
+              onDay={setLoggedDay}
+              pillRef={whenPill}
+              onKeyDown={(event) => {
+                if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
+                if (event.target !== whenPill.current && !event.shiftKey) return;
+                event.preventDefault();
+                focusAfter("when", event.shiftKey);
+              }}
+            />
+          ) : null}
+          {/* The shorthand hint on a bare task; the mouse fallbacks sit at the end of its line. */}
+          {classification.category === null &&
+          classification.tags.length === 0 &&
+          classification.due === null ? (
+            <span className="flex min-h-5 grow items-center text-xs text-muted-foreground">
+              @category #tags !date
+            </span>
+          ) : null}
+        </div>
+        {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
+        {notesOpen ? (
+          <div className="pt-0.5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1">
+            <InlineDescription
+              ref={notesInput}
+              className={cn(touch && "scroll-mb-12")}
+              aria-label="Description"
+              name="description"
+              placeholder="Write in Markdown…"
+              value={description}
+              readOnly={pending}
+              onChange={(event) => {
+                if (!described.current && event.target.value.trim()) {
+                  described.current = true;
+                  practice("edit.description");
+                }
+                setDescription(event.target.value);
+              }}
+              onFocus={() => setActiveField("description")}
+              onPaste={pending ? undefined : images.paste}
+              onBlur={(event) => {
+                const nextFocus = event.relatedTarget;
+                if (
+                  !description.trim() &&
+                  nextFocus instanceof HTMLElement &&
+                  event.currentTarget.form?.contains(nextFocus)
+                )
+                  setNotesOpen(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                  event.preventDefault();
+                  focusAfter("description", event.shiftKey);
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (!pending) onCancel();
+                }
+              }}
+            />
+          </div>
+        ) : touch ? (
+          <div className="pt-1">
+            <PlaceholderButton type="button" tabIndex={-1} disabled={pending} onClick={showNotes}>
+              Add a description…
+            </PlaceholderButton>
+          </div>
+        ) : null}
+      </div>
       {!touch ? (
         <div className="-my-0.5 ml-auto flex items-center justify-end gap-0.5 motion-safe:animate-in motion-safe:fade-in @max-md:order-last @max-md:basis-full">
           <KeyHintButton
@@ -860,61 +916,6 @@ export function TaskComposer({
           >
             {pending ? "Saving…" : "Save"}
           </KeyHintButton>
-        </div>
-      ) : null}
-      {titleError ? (
-        <div className="basis-full">
-          <FieldError id={`${id}-error`}>Write a title first.</FieldError>
-        </div>
-      ) : null}
-      {notesOpen ? (
-        <div className="basis-full pt-1 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1">
-          <InlineDescription
-            ref={notesInput}
-            className={cn(touch && "scroll-mb-12")}
-            aria-label="Description"
-            name="description"
-            placeholder="Write in Markdown…"
-            value={description}
-            readOnly={pending}
-            onChange={(event) => {
-              if (!described.current && event.target.value.trim()) {
-                described.current = true;
-                practice("edit.description");
-              }
-              setDescription(event.target.value);
-            }}
-            onFocus={() => setActiveField("description")}
-            onPaste={pending ? undefined : images.paste}
-            onBlur={(event) => {
-              const nextFocus = event.relatedTarget;
-              if (
-                !description.trim() &&
-                nextFocus instanceof HTMLElement &&
-                event.currentTarget.form?.contains(nextFocus)
-              )
-                setNotesOpen(false);
-            }}
-            onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-              if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                event.preventDefault();
-                focusAfter("description", event.shiftKey);
-                return;
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                event.stopPropagation();
-                if (!pending) onCancel();
-              }
-            }}
-          />
-        </div>
-      ) : touch ? (
-        <div className="basis-full pt-1">
-          <PlaceholderButton type="button" tabIndex={-1} disabled={pending} onClick={showNotes}>
-            Add a description…
-          </PlaceholderButton>
         </div>
       ) : null}
       {touch ? (

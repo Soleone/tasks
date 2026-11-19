@@ -30,7 +30,7 @@ Capture and edit use the same inline editor, laid out like the row it replaces: 
 | `edit.description-list` | Pressing Enter in a list or checklist item of the description | The new line starts the next item with the same indent and marker, a checklist item's box empty. Enter on an item with nothing after its marker removes the marker instead, ending the list. Shift+Enter is a plain new line |
 | `edit.description-button` | Add description | Opens the description for the mouse |
 | `edit.description-visible` | Add description opens the description | It takes focus and scrolls into view, again once an on-screen keyboard has resized the window |
-| `edit.buttons` | Cancel, Add description and Save | Mouse fallbacks, not Tab stops, quiet at the end of the line under the title, or under everything else when the editor is narrow. Each shows the key that does the same from the focused field, such as `Esc` before Cancel in the title and `Ctrl+Enter` before Save in the description. The dismissal button always says Cancel and sits before Add description. Touch differs (`platform.editor-buttons`) |
+| `edit.buttons` | Cancel, Add description and Save | Mouse fallbacks, not Tab stops, quiet at the end of the line under the title, with the description beside them, or under everything else when the editor is narrow. Each shows the key that does the same from the focused field, such as `Esc` before Cancel in the title and `Ctrl+Enter` before Save in the description. The dismissal button always says Cancel and sits before Add description. Touch differs (`platform.editor-buttons`) |
 
 ## Images
 
