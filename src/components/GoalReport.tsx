@@ -663,9 +663,7 @@ function WeekTip({
         <span className="font-medium">
           {addDays(week, 6) >= today ? "This week" : `Week of ${formatDueDate(week, today)}`}
         </span>
-        <span className={cn("ml-3", left === 0 ? "text-success-inverse" : "opacity-70")}>
-          {left === 0 ? "Met" : `${left} to go`}
-        </span>
+        {left === 0 ? <Met /> : <span className="ml-3 opacity-60">{left} to go</span>}
       </Line>
       {weekly.map((goal) => (
         <Line key={goal.slug ?? ""}>
@@ -676,7 +674,7 @@ function WeekTip({
           <Numbers done={goal.week!.done} target={goal.week!.count} />
         </Line>
       ))}
-      <span className="max-w-56 border-t border-background/20 pt-1.5 opacity-80">
+      <span className="max-w-56 border-t border-current/15 pt-1.5 opacity-60">
         Counts the whole week and never holds a day back
       </span>
     </Columns>
@@ -871,6 +869,16 @@ function yearShade(goals: GoalsToday | null): string | undefined {
   return goals.done === 0 ? "bg-muted/70" : "bg-success/(--share)";
 }
 
+/** A met day or week in a tooltip, in the success green with a check. */
+function Met(): ReactElement {
+  return (
+    <span className="ml-3 inline-flex items-center gap-1 font-medium text-success-inverse dark:text-success">
+      <Check className="size-3" strokeWidth={3} />
+      Met
+    </span>
+  );
+}
+
 /** A day's tooltip: its date and how it went, each goal's numbers, then how it compares to a usual day. */
 function DayTip({
   day,
@@ -897,18 +905,22 @@ function DayTip({
       <Line>
         <span className="font-medium">
           {day === today ? "Today" : formatDueDate(day, today)}
-          <span className="font-normal opacity-70"> · {goals.done} done</span>
+          <span className="font-normal opacity-60"> · {goals.done} done</span>
         </span>
-        <span className={cn("ml-3", met ? "text-success-inverse" : "opacity-70")}>
-          {met ? "Met" : goals.done === 0 ? "Nothing done" : status(goals)}
-        </span>
+        {met ? (
+          <Met />
+        ) : (
+          <span className="ml-3 opacity-60">
+            {goals.done === 0 ? "Nothing done" : status(goals)}
+          </span>
+        )}
       </Line>
       {goals.goals.map((goal) => (
         <Line key={goal.slug ?? ""}>
           <span className="flex items-center gap-1.5">
             <GoalDot goal={goal} />
             {goal.name}
-            {goal.week && <span className="opacity-70">· {goal.done} that day</span>}
+            {goal.week && <span className="opacity-60">· {goal.done} that day</span>}
           </span>
           {goal.week ? (
             <Numbers done={goal.week.done} target={goal.week.count} />
@@ -919,14 +931,14 @@ function DayTip({
       ))}
       {best !== undefined && (
         <Line>
-          <span className="font-medium">
+          <span>
             {usual > 0 ? `${(goals.done / usual).toFixed(1)}× your usual day` : "A standout day"}
           </span>
-          {best && <span className="ml-3 font-medium">Best this {range}</span>}
+          {best && <span className="ml-3 font-medium dark:text-primary">Best this {range}</span>}
         </Line>
       )}
-      <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5 opacity-80">
-        What got done <Kbd>Enter</Kbd>
+      <span className="flex items-center justify-between gap-3 border-t border-current/15 pt-1.5">
+        <span className="opacity-60">What got done</span> <Kbd>Enter</Kbd>
       </span>
     </Columns>
   );

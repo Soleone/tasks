@@ -45,11 +45,14 @@
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-success: var(--success);
-  /* On an inverted surface (a tooltip), the theme's green leans toward the page so it stays legible. */
+  /* On a light theme's inverted tooltip, the green leans toward the page so it stays legible. */
   --color-success-inverse: color-mix(in oklab, var(--success) 50%, var(--background));
   --color-warning: var(--warning);
   --color-priority-faint: var(--priority-faint);
   --color-success-faint: var(--success-faint);
+  /* A dark theme's tooltip: a step above the page, mixed from the page and ink rather than taken
+   * from a theme slot, since themes disagree on what their lighter background is. */
+  --color-tooltip: color-mix(in oklab, var(--background) 86%, var(--foreground));
   --color-priority-soft: color-mix(in oklab, var(--foreground) 50%, var(--muted-foreground));
   --color-classification-category: var(--classification-category);
   --color-accent-foreground: var(--accent-foreground);

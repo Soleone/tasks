@@ -3,8 +3,8 @@ import { CircleCheck, CircleHelp, Hand, Pointer, Trophy } from "lucide-react";
 import { cn } from "cn";
 import { Button, QuietButton } from "@/components/variants/button";
 import { Kbd } from "@/components/ui/kbd";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { KeyCap } from "@/components/variants/kbd";
 import { currentDevice, movesFor } from "@/learning/moves";
 import {

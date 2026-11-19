@@ -54,8 +54,8 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./ui/breadcrumb
 import { Button } from "./ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Popover, PopoverTrigger } from "./ui/popover";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "./ui/tooltip";
 import { preventFocusSteal } from "@/navigation";
 import { ButtonRow, ToolbarGroup } from "@/components/variants/button-group";
 import {

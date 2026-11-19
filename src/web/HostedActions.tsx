@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { Corner, DownloadButton } from "@/components/live/corners";
 import SquishSwitch from "@/components/react-bits/SquishSwitch";
 import { showTaskToast } from "@/components/TaskToaster";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal } from "@/navigation";
 
 export const RELEASES_URL = "https://github.com/Soleone/tasks/releases/latest";

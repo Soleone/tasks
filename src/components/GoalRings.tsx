@@ -2,8 +2,8 @@ import type { CSSProperties, ReactElement, ReactNode } from "react";
 import { Fragment } from "react";
 import { cn } from "cn";
 import { BindingKbd } from "@/components/variants/kbd";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { isMet, type GoalProgress, type GoalsToday } from "@/goals";
 import type { GoalLens } from "./listLens";
 import { dayMet, dayShare } from "@/goalReport";
@@ -108,13 +108,13 @@ export function Numbers({
     <span
       className={cn(
         "ml-3 inline-flex whitespace-pre tabular-nums",
-        met && check && "text-success-inverse",
+        met && check && "text-success-inverse dark:text-success",
       )}
     >
       {check && <span className="w-[2ch]">{met ? "✓" : ""}</span>}
       <span className="w-(--dw) text-right">{done}</span>
       {/* The goal recedes, so the eye lands on the number you moved. */}
-      <span className="w-[calc(var(--gw)+1ch)] opacity-55">/{target}</span>
+      <span className="w-[calc(var(--gw)+1ch)] opacity-60">/{target}</span>
     </span>
   );
 }
@@ -144,7 +144,7 @@ export function Columns({
 /** A goal's color; everything else is neutral, in the tooltip's ink unless `neutral` says otherwise. */
 export function GoalDot({
   goal,
-  neutral = "bg-background",
+  neutral = "bg-current",
 }: {
   goal: GoalProgress;
   neutral?: string;
@@ -223,11 +223,11 @@ export function DoneTodayTip({
         </Line>
       ))}
       {week && (
-        <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5">
+        <span className="flex items-center justify-between gap-3 border-t border-current/15 pt-1.5">
           This week <WeekDots week={week} />
         </span>
       )}
-      <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5">
+      <span className="flex items-center justify-between gap-3 border-t border-current/15 pt-1.5">
         {lensOn ? "Back to your list" : "Show what's done"} <BindingKbd id="done.lens" />
       </span>
       <span className="flex items-center justify-between gap-3">
@@ -258,11 +258,11 @@ function GoalTip({ goal }: { goal: GoalProgress }): ReactElement {
     >
       <span className="font-medium">{goal.name}</span>
       <Line>
-        <span className="opacity-70">Today</span>
+        <span className="opacity-60">Today</span>
         <Numbers done={goal.done} target={goal.target} />
       </Line>
       <Line>
-        <span className="opacity-70">This week</span>
+        <span className="opacity-60">This week</span>
         <Numbers done={goal.week.done} target={goal.week.count} />
       </Line>
     </Columns>
@@ -481,7 +481,7 @@ export function DoneLensGoals({
             <TooltipContent side="bottom">
               <Columns pairs={[[entry.week.done, entry.week.count]]}>
                 <Line>
-                  <span className="opacity-70">This week</span>
+                  <span className="opacity-60">This week</span>
                   <Numbers done={entry.week.done} target={entry.week.count} />
                 </Line>
               </Columns>

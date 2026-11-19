@@ -25,8 +25,8 @@ import {
 } from "@/components/taskFilters";
 import { modKey } from "@/platform/runtime";
 import { preventFocusSteal } from "@/navigation";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { Hinted } from "./Hinted";

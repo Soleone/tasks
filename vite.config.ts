@@ -36,9 +36,9 @@ const noCva = {
 };
 const noStockTooltip = {
   group: ["**/components/ui/tooltip"],
-  importNames: ["Tooltip", "TooltipProvider"],
+  importNames: ["Tooltip", "TooltipContent", "TooltipProvider"],
   message:
-    "Import Tooltip from components/variants/tooltip and TooltipProvider from components/soleone/tooltip, so tooltips close when the window loses focus.",
+    "Import Tooltip and TooltipContent from components/variants/tooltip and TooltipProvider from components/soleone/tooltip, so tooltips close when the window loses focus and share one surface.",
 };
 const focusVariants = [
   {
