@@ -493,7 +493,9 @@ export function useWorkspaceActions({
     const creating = composerBeforeSave?.mode === "create";
     const previous = composerBeforeSave?.mode === "edit" ? [composerBeforeSave.task] : [];
     const visible = isCurrentViewMatch(task);
-    if (visible) setSavedTask({ id: task.id, kind: creating ? "created" : "updated" });
+    // Saving an edit that changed nothing must not look like it changed something.
+    if (visible && result.changed !== false)
+      setSavedTask({ id: task.id, kind: creating ? "created" : "updated" });
     if (creating) {
       setOptimisticCreate(null);
       if (visible) {

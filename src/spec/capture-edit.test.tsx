@@ -165,6 +165,20 @@ describe("opening and closing", () => {
     await waitFor(() => expect(saved("Old title")).toBeNull());
   });
 
+  test("edit.saved: saving an edit that changed nothing does not play", async () => {
+    const { user } = await workspace.render();
+    await capture(user, "Same #home{Enter}");
+    await waitFor(() => expect(saved("Same")).toBe("created"));
+    await waitFor(() => expect(saved("Same")).toBeNull(), { timeout: 2000 });
+    await user.keyboard("{ArrowDown}");
+    await expectActive("Same");
+    await user.keyboard("{Enter}");
+    await focusedTitleField();
+    await user.keyboard("{Enter}");
+    await expectListFocused();
+    expect(saved("Same")).toBeNull();
+  });
+
   test("capture.saved: saving a new task plays its own feedback", async () => {
     const { user } = await workspace.render();
     await capture(user, "Fresh{Enter}");
