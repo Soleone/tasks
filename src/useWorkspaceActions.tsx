@@ -115,13 +115,22 @@ export function useWorkspaceActions({
     cancelFlights(taskIds);
   }
 
+  function reportEditFailure(task: TaskView, caught: unknown): void {
+    setAnnouncement(
+      caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
+        ? `${task.title} changed elsewhere. Refresh and try again.`
+        : caught instanceof Error
+          ? caught.message
+          : String(caught),
+    );
+    void refreshTasks();
+  }
+
   async function pickerRemoveBlocker(blockerId: string): Promise<void> {
     if (!picker) return;
     const { subject } = picker;
     const current = tasks.find((task) => task.id === subject.id) ?? subject;
-    const blocker = tasks.find((task) => task.id === blockerId);
-    const subjectTitle = current.title;
-    const blockerTitle = blocker ? blocker.title : "blocker";
+    const blockerTitle = tasks.find((task) => task.id === blockerId)?.title ?? "blocker";
     closePicker();
     try {
       const result = await removeDependency(current.id, blockerId, current.version, {
@@ -129,16 +138,9 @@ export function useWorkspaceActions({
       });
       updateVisibleTask(result.task);
       recordOperationUndo(result.operationId, [current], [result.task]);
-      setAnnouncement(`${subjectTitle} is no longer blocked by ${blockerTitle}`);
+      setAnnouncement(`${current.title} is no longer blocked by ${blockerTitle}`);
     } catch (caught) {
-      setAnnouncement(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${current.title} changed elsewhere. Refresh and try again.`
-          : caught instanceof Error
-            ? caught.message
-            : String(caught),
-      );
-      void refreshTasks();
+      reportEditFailure(current, caught);
     }
   }
 
@@ -146,7 +148,6 @@ export function useWorkspaceActions({
     if (!picker) return;
     const { subject } = picker;
     const current = tasks.find((task) => task.id === subject.id) ?? subject;
-    const subjectTitle = current.title;
     closePicker();
     try {
       const result = await moveTask(current.id, null, current.version, {
@@ -157,16 +158,9 @@ export function useWorkspaceActions({
       updateVisibleTask(result.task);
       recordOperationUndo(result.operationId, [current], [result.task]);
       if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
-      setAnnouncement(`${subjectTitle} is now a top-level task`);
+      setAnnouncement(`${current.title} is now a top-level task`);
     } catch (caught) {
-      setAnnouncement(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${current.title} changed elsewhere. Refresh and try again.`
-          : caught instanceof Error
-            ? caught.message
-            : String(caught),
-      );
-      void refreshTasks();
+      reportEditFailure(current, caught);
     }
   }
 
@@ -190,22 +184,13 @@ export function useWorkspaceActions({
       updateVisibleTask(result.task);
       recordOperationUndo(result.operationId, [current], [result.task]);
       if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
-      const subjectTitle = current.title;
-      const targetTitle = target.title;
       setAnnouncement(
         mode === "blocker"
-          ? `${subjectTitle} is now blocked by ${targetTitle}`
-          : `${subjectTitle} moved under ${targetTitle}`,
+          ? `${current.title} is now blocked by ${target.title}`
+          : `${current.title} moved under ${target.title}`,
       );
     } catch (caught) {
-      setAnnouncement(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${current.title} changed elsewhere. Refresh and try again.`
-          : caught instanceof Error
-            ? caught.message
-            : String(caught),
-      );
-      void refreshTasks();
+      reportEditFailure(current, caught);
     }
   }
 
@@ -230,14 +215,7 @@ export function useWorkspaceActions({
         `${current.title}: ${result.task.status === "paused" ? "Paused" : "In progress"}`,
       );
     } catch (caught) {
-      setAnnouncement(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${current.title} changed elsewhere. Refresh and try again.`
-          : caught instanceof Error
-            ? caught.message
-            : String(caught),
-      );
-      void refreshTasks();
+      reportEditFailure(current, caught);
     }
   }
 
