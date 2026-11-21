@@ -19,6 +19,7 @@ function task(id: string, status: TaskStatus, closedAt: string | null): TaskProj
     attachments: [],
     due: null,
     effort: 3,
+    meta: {},
     orderKey: `a${id}`,
     createdAt: "2026-10-20T08:00:00.000Z",
     updatedAt: "2026-10-20T08:00:00.000Z",

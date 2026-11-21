@@ -1,8 +1,14 @@
 import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
 import { isDueDate } from "./dueDate.js";
-import { DEFAULT_EFFORT, isAttachmentList, isEffort, validateTask } from "./taskModel.js";
-import type { CanonicalTask, TaskEffort } from "./taskModel.js";
+import {
+  DEFAULT_EFFORT,
+  isAttachmentList,
+  isEffort,
+  isTaskMeta,
+  validateTask,
+} from "./taskModel.js";
+import type { CanonicalTask, TaskEffort, TaskMeta } from "./taskModel.js";
 import { invalidInput, parseShorthand, slugInput } from "./shorthand.js";
 
 export type UpdateInput = {
@@ -12,7 +18,12 @@ export type UpdateInput = {
     Pick<
       CanonicalTask,
       "title" | "text" | "description" | "priority" | "category" | "tags" | "attachments"
-    > & { due: string | null; effort: TaskEffort }
+    > & {
+      due: string | null;
+      effort: TaskEffort;
+      /** Replaces each named namespace; `null` removes one. Others are kept. */
+      meta: Record<string, TaskMeta[string] | null>;
+    }
   >;
 };
 
@@ -75,6 +86,20 @@ export function parseContentPatch(args: Record<string, unknown>): UpdateInput["p
     if (!isAttachmentList(args.attachments)) invalidInput("attachments");
     patch.attachments = args.attachments;
   }
+  if (args.meta !== undefined) {
+    // `null` removes a namespace; checked as an empty one, since that is what it leaves.
+    const meta = args.meta as Record<string, unknown>;
+    if (
+      meta === null ||
+      typeof meta !== "object" ||
+      Array.isArray(meta) ||
+      !isTaskMeta(
+        Object.fromEntries(Object.entries(meta).map(([key, value]) => [key, value ?? {}])),
+      )
+    )
+      invalidInput("meta");
+    patch.meta = meta as UpdateInput["patch"]["meta"];
+  }
   return patch;
 }
 
@@ -105,6 +130,7 @@ export function parseUpdate(args: Record<string, unknown>): UpdateInput {
     "due",
     "effort",
     "attachments",
+    "meta",
   ]);
   return { ...parseTaskVersion(args), patch: parseContentPatch(args) };
 }
@@ -114,7 +140,10 @@ export function applyUpdate(
   input: UpdateInput,
   at: string,
 ): { task: CanonicalTask; changed: boolean } {
-  const next = { ...task, ...input.patch };
+  const { meta, ...fields } = input.patch;
+  const next: CanonicalTask = { ...task, ...fields };
+  if (meta !== undefined) next.meta = mergeMeta(task.meta ?? {}, meta);
+  if (next.meta !== undefined && Object.keys(next.meta).length === 0) delete next.meta;
   if (next.attachments?.length === 0) delete next.attachments;
   if (next.due === null) delete next.due;
   if (next.effort === DEFAULT_EFFORT) delete next.effort;
@@ -125,6 +154,17 @@ export function applyUpdate(
   )
     next.text = null;
   const changed = JSON.stringify(next) !== JSON.stringify(task);
-  if (changed) next.updatedAt = at;
+  // Other programs' data isn't an edit the owner made, so it leaves the task's time alone.
+  const edited =
+    JSON.stringify({ ...next, meta: null }) !== JSON.stringify({ ...task, meta: null });
+  if (edited) next.updatedAt = at;
   return { task: validateTask(next, task.id), changed };
+}
+
+function mergeMeta(current: TaskMeta, patch: NonNullable<UpdateInput["patch"]["meta"]>): TaskMeta {
+  const next = { ...current };
+  for (const [key, value] of Object.entries(patch))
+    if (value === null) delete next[key];
+    else next[key] = value;
+  return next;
 }

@@ -1,7 +1,7 @@
 import { CommandError } from "./errors.js";
 import { isDueDate } from "./dueDate.js";
 import { assertArgs, isRecord, TASK_LIST_MAX_LIMIT } from "./protocol.js";
-import type { CanonicalTask, TaskEffort } from "./taskModel.js";
+import type { CanonicalTask, TaskEffort, TaskMeta } from "./taskModel.js";
 import { compareTasks, DEFAULT_EFFORT, isTimestamp } from "./taskModel.js";
 import { typedText } from "./shorthand.js";
 import type { QueryAuthority } from "./queryCache.js";
@@ -10,6 +10,7 @@ export type TaskProjection = CanonicalTask & {
   attachments: string[];
   due: string | null;
   effort: TaskEffort;
+  meta: TaskMeta;
   version: number;
   blockedByIds: string[];
 };
@@ -46,6 +47,7 @@ export function projectTasks(tasks: CanonicalTask[], authority: QueryAuthority):
     attachments: task.attachments ?? [],
     due: task.due ?? null,
     effort: task.effort ?? DEFAULT_EFFORT,
+    meta: task.meta ?? {},
     version: authority.versions.get(task.id)!,
     blockedByIds: task.dependencyIds.filter((id) => byId.get(id)!.status !== "canceled"),
   }));

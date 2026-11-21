@@ -58,8 +58,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Command | Args | Result |
 | --- | --- | --- |
-| `task.create` | `title` or `text`; optional `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments`, `parentId`, `closedAt` | `task`, `changed`, `operationId` |
-| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments` | `task`, `changed`, `operationId` |
+| `task.create` | `title` or `text`; optional `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments`, `meta`, `parentId`, `closedAt` | `task`, `changed`, `operationId` |
+| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments`, `meta` | `task`, `changed`, `operationId` |
 | `task.start` `pause` `complete` `reopen` `cancel` `delete` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.status.undo` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.move` | `id`, `expectedVersion`, `parentId` (or `null`) | `task`, `changed`, `operationId` |
@@ -77,6 +77,7 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | --- | --- |
 | `create.logged` | `task.create` with `closedAt` (a timestamp, not after now) logs a task already done: it is created done at that time. A time in the future fails `INVALID_ARGUMENT` |
 | `create.defaults` | New tasks are open, P2, empty description, no category, tags, parent or dependencies unless given, and first among siblings |
+| `update.meta` | `meta` in `task.update` replaces each namespace it names and keeps the others; a namespace set to `null` is removed. So two programs never overwrite each other's data. Results always include `meta`, `{}` when there is none |
 | `update.no-graph` | `task.update` can't set status, links, order keys or timestamps |
 | `reorder.one-scope` | All selected tasks and the anchor share one parent, the anchor isn't selected, and selected tasks are in their current order. Otherwise `INVALID_ARGUMENT` |
 | `batch.all-or-nothing` | `transitionMany` and `undoMany` check every item first. One bad item fails the whole batch with no writes |

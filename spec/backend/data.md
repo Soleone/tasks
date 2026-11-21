@@ -72,11 +72,13 @@ Every task file has these 14 required fields and may have the optional fields be
 | `attachments` | File names in `attachments/`, unique, in the order they were added, at most 10 | `[]` |
 | `due` | A calendar date, `YYYY-MM-DD`, with no time or zone | `null` |
 | `effort` | How big the work is: integer 1 (tiny) to 5 (huge) | `3` (normal) |
+| `meta` | Data other programs keep on the task: an object whose keys are client slugs (`factory`) and whose values are objects of any JSON. At most 65,536 UTF-16 units as written. Tasks never reads or shows it | `{}` |
 
 | Rule | Then |
 | --- | --- |
 | `data.optional-fields` | A missing optional field means its default. Writers leave out a field at its default, so a task without attachments has no `attachments` key. Readers also accept the default written out |
 | `data.unknown-fields` | A field this build doesn't know makes the file unreadable here, reported as written by a newer version of Tasks (`UNSUPPORTED_SCHEMA`) with the field name. The file is never rewritten |
+| `data.meta` | `meta` is kept through every write, sync, undo, redo and doctor repair like any other field. Only `task.create` and `task.update` set it. Strings in it follow `data.json-strict`, and numbers are finite |
 | `data.schema-additive` | Adding an optional field doesn't change `schemaVersion`. A new version is only for changes an older build would misread |
 
 > Why: optional fields let a new build read every existing file unchanged. Refusing unknown fields, instead of carrying them along, means an older device can't quietly drop what a newer one wrote.

@@ -224,3 +224,50 @@ test("data.optional-fields: effort is left out at normal and refused outside 1 t
       String(effort),
     );
 });
+
+test("update.meta: namespaces replace one at a time, null removes one, the time stays", () => {
+  const base = validateTask(corpus.taskTemplate, "a");
+  const update = (task: typeof base, meta: unknown) =>
+    applyUpdate(task, parseUpdate({ id: "a", expectedVersion: 1, meta }), at);
+  const first = update(base, { factory: { tier: "grunt" }, other: { x: 1 } });
+  assert.equal(first.changed, true);
+  assert.equal(first.task.updatedAt, base.updatedAt);
+  const second = update(first.task, { factory: { tier: "builder" }, other: null });
+  assert.deepEqual(second.task.meta, { factory: { tier: "builder" } });
+  assert.equal("meta" in update(second.task, { factory: null }).task, false);
+  const retitled = applyUpdate(
+    second.task,
+    parseUpdate({ id: "a", expectedVersion: 2, title: "Renamed" }),
+    at,
+  ).task;
+  assert.deepEqual(retitled.meta, { factory: { tier: "builder" } });
+  assert.equal(retitled.updatedAt, at);
+  const created = buildCreatedTask(
+    parseCreate({ title: "Ship", meta: { factory: { gates: ["vp check"] }, gone: null } }),
+    { id: "b", at },
+    [],
+  );
+  assert.deepEqual(created.meta, { factory: { gates: ["vp check"] } });
+  assert.equal(
+    "meta" in buildCreatedTask(parseCreate({ title: "Ship" }), { id: "c", at }, []),
+    false,
+  );
+  for (const meta of [
+    null,
+    [],
+    { factory: 1 },
+    { factory: [] },
+    { Factory: {} },
+    { factory: { text: "\ud800" } },
+    { factory: { big: "x".repeat(65536) } },
+  ])
+    assert.throws(
+      () => parseUpdate({ id: "a", expectedVersion: 1, meta }),
+      (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+      JSON.stringify(meta),
+    );
+  assert.throws(
+    () => validateTask({ ...corpus.taskTemplate, meta: { factory: 2 } }, "a"),
+    (error) => error instanceof CommandError && error.code === "INVALID_CANONICAL",
+  );
+});

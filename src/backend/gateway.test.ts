@@ -156,6 +156,7 @@ test("envelope correlation, strict types, unsupported names and previews cannot 
       "attachments",
       "due",
       "effort",
+      "meta",
       "version",
       "blockedByIds",
     ].sort(),

@@ -44,6 +44,7 @@ export function parseTaskProjection(value: unknown): TaskProjection {
     attachments: task.attachments ?? [],
     due: task.due ?? null,
     effort: task.effort ?? DEFAULT_EFFORT,
+    meta: task.meta ?? {},
     version,
     blockedByIds,
   };

@@ -5,6 +5,9 @@ export type TaskPriority = 0 | 1 | 2 | 3 | 4;
 /** How big the work is, 1 (tiny) to 5 (huge). Most tasks are 3 and leave the field out. */
 export type TaskEffort = 1 | 2 | 3 | 4 | 5;
 export const DEFAULT_EFFORT: TaskEffort = 3;
+/** Data other programs keep on a task, one object per client slug. Tasks never reads it. */
+export type TaskMeta = Record<string, Record<string, unknown>>;
+const MAX_META_LENGTH = 65536;
 
 export type CanonicalTask = {
   id: string;
@@ -25,6 +28,7 @@ export type CanonicalTask = {
   attachments?: string[];
   due?: string | null;
   effort?: TaskEffort;
+  meta?: TaskMeta;
 };
 
 const requiredFields = [
@@ -43,7 +47,7 @@ const requiredFields = [
   "updatedAt",
   "closedAt",
 ];
-const optionalFields = ["attachments", "due", "effort"];
+const optionalFields = ["attachments", "due", "effort", "meta"];
 export const MAX_ATTACHMENTS = 10;
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const ATTACHMENT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
@@ -62,6 +66,27 @@ const unpairedSurrogate = /[\uD800-\uDFFF]/u;
 
 export function isEffort(value: unknown): value is TaskEffort {
   return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 5;
+}
+
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "string") return !unpairedSurrogate.test(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(([key, item]) => !unpairedSurrogate.test(key) && isJsonValue(item))
+  );
+}
+
+/** Namespaces are slugs holding objects, so one client's data never sits loose beside another's. */
+export function isTaskMeta(value: unknown): value is TaskMeta {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(([key, item]) => slug.test(key) && isRecord(item)) &&
+    isJsonValue(value) &&
+    JSON.stringify(value).length <= MAX_META_LENGTH
+  );
 }
 
 function invalidTask(field: string): never {
@@ -174,6 +199,7 @@ export function validateTask(value: unknown, filenameId: string): CanonicalTask 
     invalidTask("attachments");
   if (value.due !== undefined && value.due !== null && !isDueDate(value.due)) invalidTask("due");
   if (value.effort !== undefined && !isEffort(value.effort)) invalidTask("effort");
+  if (value.meta !== undefined && !isTaskMeta(value.meta)) invalidTask("meta");
   if (!isTimestamp(value.createdAt) || !isTimestamp(value.updatedAt)) invalidTask("timestamps");
   const terminal = value.status === "done" || value.status === "canceled";
   if (terminal ? !isTimestamp(value.closedAt) : value.closedAt !== null)
