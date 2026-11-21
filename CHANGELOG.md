@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.6](https://github.com/Soleone/tasks/compare/v0.7.5...v0.7.6) (2026-11-21)
+
+### Features
+
+* **backend:** keep other programs' data on a task in meta ([323d4d6](https://github.com/Soleone/tasks/commit/323d4d6387d2d5081bcf3ec8eedd2add48199eb7))
+
 ## [0.7.5](https://github.com/Soleone/tasks/compare/v0.7.4...v0.7.5) (2026-11-19)
 
 ### Features
