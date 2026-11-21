@@ -5,7 +5,13 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { TestContext } from "node:test";
-import { createCopyTestWorkspace as setup, fail, send, success } from "./copyTestWorkspace.js";
+import {
+  createCopyTestWorkspace as setup,
+  fail,
+  send,
+  success,
+  taskFileBytes as raw,
+} from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readRootDescriptor } from "./canonicalReader.js";
 import { pendingIntentPath } from "./localDomain.js";
@@ -32,11 +38,6 @@ function materialize(t: TestContext, records: Record<string, Partial<CanonicalTa
 function list(w: Workspace) {
   return success(send(w, { command: "task.list", args: { sort: "manual" } })).result
     .tasks as Projection[];
-}
-function raw(w: Workspace) {
-  return readdirSync(path.join(w.root, "tasks"))
-    .sort()
-    .map((file) => [file, readFileSync(path.join(w.root, "tasks", file)).toString("base64")]);
 }
 function request(
   w: Workspace,

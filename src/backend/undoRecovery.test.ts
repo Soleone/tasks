@@ -20,6 +20,7 @@ import {
   run,
   send,
   success,
+  taskFileBytes as raw,
 } from "./copyTestWorkspace.js";
 import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import { readRootDescriptor } from "./canonicalReader.js";
@@ -33,11 +34,6 @@ const corpus = JSON.parse(
   ),
 );
 const linux = { skip: process.platform !== "linux" };
-function raw(w: Workspace) {
-  return readdirSync(path.join(w.root, "tasks"))
-    .sort()
-    .map((file) => [file, readFileSync(path.join(w.root, "tasks", file)).toString("base64")]);
-}
 function prepared(w: Workspace, command: string, args: Record<string, unknown>) {
   const read = success(send(w, { command: "task.list", args: { sort: "manual" } }));
   const versions = new Map(
