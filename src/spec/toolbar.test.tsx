@@ -454,7 +454,7 @@ describe("filters", () => {
     },
   );
 
-  test("filter.search: / searches titles and descriptions and the query stays applied", async () => {
+  test("filter.search: / searches titles and descriptions as you type and the query stays applied", async () => {
     await workspace.create("Groceries");
     await workspace.create("Plain", { description: "mentions groceries too" });
     await workspace.create("Unrelated");
@@ -474,9 +474,12 @@ describe("filters", () => {
     const clear = screen.getByRole("button", { name: /^Clear search$/ });
     expect(clear.textContent).toBe("");
     expect(clear.tabIndex).toBe(-1);
-    await user.keyboard("groceries{Enter}");
+    await user.keyboard("groceries");
     await expectRows(["Plain", "Groceries"]);
+    expect(document.activeElement).toBe(input);
+    await user.keyboard("{Enter}");
     expect(screen.queryByRole("search")).toBeNull();
+    await expectRows(["Plain", "Groceries"]);
     await expectListFocused();
 
     await user.click(document.querySelector("[data-filter=task-search]")!);
@@ -484,9 +487,10 @@ describe("filters", () => {
     expect((reopened as HTMLInputElement).value).toBe("groceries");
     await user.clear(reopened);
     await user.type(reopened, "unrelated");
+    await expectRows(["Unrelated"]);
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("search")).toBeNull();
-    await expectRows(["Plain", "Groceries"]);
+    await expectRows(["Unrelated"]);
     await expectListFocused();
   });
 

@@ -847,11 +847,14 @@ export default function App({
     requestActiveTask();
   }
 
+  function typeSearch(query: string): void {
+    setSearchQuery(query);
+    requestActiveTask();
+  }
+
   function chooseSearch(query: string): void {
     if (searchOpen) closeSearch();
-    const next = query.trim();
-    setSearchQuery(next);
-    requestActiveTask();
+    typeSearch(query.trim());
   }
 
   function clearAllFilters(): void {
@@ -1120,8 +1123,8 @@ export default function App({
               <InlineSearch
                 ref={searchInput}
                 initialQuery={searchQuery}
+                onType={typeSearch}
                 onSelect={chooseSearch}
-                onClose={closeSearch}
               />
             ) : null
           }
