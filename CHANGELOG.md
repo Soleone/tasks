@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.8](https://github.com/Soleone/tasks/compare/v0.7.7...v0.7.8) (2026-11-22)
+
+### Features
+
+* Escape in search clears it, Enter keeps it ([3646e8c](https://github.com/Soleone/tasks/commit/3646e8cc3a295527badb93ba85158ae5de33c327))
+* search filters the list as you type ([d6a5e8e](https://github.com/Soleone/tasks/commit/d6a5e8ea51abc44805d3fc030c05905639fdd0df))
+
+### Bug Fixes
+
+* find every task in the move and blocker pickers ([5534d39](https://github.com/Soleone/tasks/commit/5534d39f22e70f92ab1a62710066f4155379ba94))
+
 ## [0.7.7](https://github.com/Soleone/tasks/compare/v0.7.6...v0.7.7) (2026-11-22)
 
 ### Features
