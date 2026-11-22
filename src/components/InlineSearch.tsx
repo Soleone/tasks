@@ -20,11 +20,9 @@ export function InlineSearch({
   const typing = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(typing.current), []);
 
-  function select(form: HTMLFormElement): void {
+  function select(query: string): void {
     window.clearTimeout(typing.current);
-    // Read the form so a fast fill-then-Enter applies the displayed value.
-    const query = new FormData(form).get("search");
-    onSelect(typeof query === "string" ? query.trim() : "");
+    onSelect(query);
   }
 
   return (
@@ -33,13 +31,15 @@ export function InlineSearch({
       aria-label="Search tasks"
       onSubmit={(event) => {
         event.preventDefault();
-        select(event.currentTarget);
+        // Read the form so a fast fill-then-Enter applies the displayed value.
+        const query = new FormData(event.currentTarget).get("search");
+        select(typeof query === "string" ? query.trim() : "");
       }}
       onKeyDown={(event) => {
         if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
         event.preventDefault();
         event.stopPropagation();
-        select(event.currentTarget);
+        select("");
       }}
     >
       <InputGroup>
@@ -64,10 +64,7 @@ export function InlineSearch({
             size="icon-xs"
             tabIndex={-1}
             aria-label="Clear search"
-            onClick={() => {
-              window.clearTimeout(typing.current);
-              onSelect("");
-            }}
+            onClick={() => select("")}
           >
             <X aria-hidden="true" />
           </InputGroupButton>

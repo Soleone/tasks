@@ -490,7 +490,7 @@ describe("filters", () => {
     await expectRows(["Unrelated"]);
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("search")).toBeNull();
-    await expectRows(["Unrelated"]);
+    await expectRows(["Unrelated", "Plain", "Groceries"]);
     await expectListFocused();
   });
 
@@ -512,7 +512,7 @@ describe("filters", () => {
     await expectListFocused();
   });
 
-  test.each(["clear button", "empty Escape"])(
+  test.each(["clear button", "Escape"])(
     "filter.search: %s clears the applied search and returns focus from filter mode",
     async (action) => {
       await workspace.create("Groceries");
@@ -526,7 +526,6 @@ describe("filters", () => {
       if (action === "clear button") {
         await user.click(screen.getByRole("button", { name: /^Clear search$/ }));
       } else {
-        await user.clear(input);
         await user.keyboard("{Escape}");
       }
       expect(screen.queryByRole("search")).toBeNull();
