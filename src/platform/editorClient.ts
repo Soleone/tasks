@@ -25,9 +25,8 @@ import {
 import { runtimeKind } from "./runtime";
 import { JsonLineSession } from "./backendSession";
 
-const statusActions = [...STATUS_COMMANDS, "task.status.undo"] as const;
 export type EditorMode = "content" | "status" | "relationship" | "order" | "operation" | "batch";
-export type StatusAction = (typeof statusActions)[number];
+export type StatusAction = (typeof STATUS_COMMANDS)[number] | "task.status.undo";
 export type RelationshipAction = (typeof RELATIONSHIP_COMMANDS)[number];
 
 export type EditorSelection = DevConnection & {
@@ -182,16 +181,14 @@ function hasExpectedVersions(request: Request): boolean {
 /** Keeps the original executing envelope immutable across previews and retries. */
 export class PreparedEdit<R extends GroupResult = EditResult> {
   private readonly serialized: string;
-  private readonly selection: EditorSelection;
   private attempted = false;
   private inFlight = false;
 
   constructor(
     private readonly connection: string | JsonLineSession<Response>,
-    selection: EditorSelection,
+    private readonly selection: EditorSelection,
     request: Request & { requestId: string },
   ) {
-    validateEditorSelection(selection);
     if (
       !selection.writeCommands.includes(request.command) ||
       !request.writeContext ||
@@ -207,10 +204,6 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
       );
     }
     this.serialized = JSON.stringify(request);
-    this.selection = Object.freeze({
-      ...selection,
-      writeCommands: Object.freeze([...selection.writeCommands]),
-    });
   }
 
   get originalRequest(): string {
@@ -252,10 +245,6 @@ export class PreparedEdit<R extends GroupResult = EditResult> {
   }
 
   private async send(preview: boolean): Promise<R> {
-    if (runtimeKind() !== "browser" && !(this.connection instanceof JsonLineSession))
-      throw new Error(
-        "Native editing requires the explicitly selected desktop session; no fallback was launched.",
-      );
     if (this.inFlight) throw new Error("The original request is already in flight.");
     this.inFlight = true;
     if (!preview) this.attempted = true;
@@ -305,15 +294,6 @@ export class EditorClient {
   }
 
   async begin(taskId?: string, mode: EditorMode = "content"): Promise<EditBaseline> {
-    if (
-      mode !== "content" &&
-      mode !== "status" &&
-      mode !== "relationship" &&
-      mode !== "order" &&
-      mode !== "operation" &&
-      mode !== "batch"
-    )
-      throw new Error("Unsupported editor mode; no query was sent.");
     const grouped = mode === "operation" || mode === "batch";
     if (grouped ? taskId !== undefined : mode !== "content" && taskId === undefined)
       throw new Error(
@@ -410,8 +390,7 @@ export class EditorClient {
     command: StatusAction,
     key: string = randomUUID(),
   ): PreparedEdit {
-    if (!baseline.task || !statusActions.some((allowed) => allowed === command))
-      throw new Error("An existing task and supported status command are required.");
+    if (!baseline.task) throw new Error("An existing task is required.");
     return this.prepareTaskRequest(
       baseline,
       command,
@@ -427,13 +406,8 @@ export class EditorClient {
     target: string | null,
     key: string,
   ): PreparedEdit {
-    if (
-      !baseline.task ||
-      !RELATIONSHIP_COMMANDS.some((allowed) => allowed === command) ||
-      (target === null && command !== "task.move")
-    ) {
-      throw new Error("An existing task and supported relationship command are required.");
-    }
+    if (!baseline.task || (target === null && command !== "task.move"))
+      throw new Error("An existing task and a dependency target are required.");
     const relation = command === "task.move" ? { parentId: target } : { dependsOnId: target };
     return this.prepareTaskRequest(
       baseline,
