@@ -11,7 +11,8 @@ import { Field, FieldGroup, FieldLabel } from "./components/ui/field";
 import { devBackendUrl, WorkspaceReader } from "./platform/workspaceReader";
 import { readEditorSelection, EditorClient, type EditorSelection } from "./platform/editorClient";
 
-// dev:web sets this when it made the home itself (the fixture or the kept copy of the real tasks).
+// dev:web sets this when it made the home itself (the fixture or the kept copy of the real tasks),
+// and serve:web, whose home was named on its command line, so a reload doesn't ask again.
 const openCopyDirectly = import.meta.env.VITE_DEV_WORKSPACE_COPY === "1";
 
 async function openWorkspace(selection: EditorSelection): Promise<MainWorkspace> {

@@ -111,9 +111,11 @@ export function parseTaskPage(result: Record<string, unknown>): TaskPage {
   };
 }
 
+/** The bridge Vite's dev server talks to, or the page's own origin in the build `serve:web` serves. */
 export function devBackendUrl(): string {
   return (
-    (import.meta.env.VITE_DEV_BACKEND_URL as string | undefined) ?? "http://127.0.0.1:5174"
+    (import.meta.env.VITE_DEV_BACKEND_URL as string | undefined) ??
+    (import.meta.env.DEV ? "http://127.0.0.1:5174" : "")
   ).replace(/\/+$/, "");
 }
 

@@ -50,6 +50,8 @@ printf '%s\n' '{"version":2,"command":"task.list","args":{"sort":"manual"}}' | \
 
 The desktop app comes with the CLI. Settings › Data shows its path and copies a short instruction block to paste into an agent's `AGENTS.md` or `CLAUDE.md`; on Linux it is also linked as `~/.local/bin/tasks-cli`. From a checkout, `pnpm install && pnpm build:backend` builds it as `node dist/backend/tasks-cli.js`. See [the CLI spec](spec/ecosystem/cli.md) and [the commands](spec/backend/commands.md).
 
+On a Linux machine without a desktop, such as a server or container where agents run `tasks-cli`, `pnpm serve:web --home PATH` serves the full app to a browser elsewhere; see [serving the web app](docs/development.md#serving-the-web-app-from-a-machine-without-a-desktop).
+
 ## Your tasks are files
 
 Everything Tasks keeps for one device lives in one folder, its Tasks home:

@@ -8,6 +8,7 @@
     "dev": "vp dev",
     "dev:web": "node scripts/dev-web.mjs",
     "dev:web:real": "node scripts/dev-web.mjs --real",
+    "serve:web": "pnpm build:backend && VITE_DEV_WORKSPACE_COPY=1 vp build --outDir dist/web && node dist/backend/devServer.js --web dist/web",
     "dev:backend": "pnpm build:backend && node dist/backend/devServer.js",
     "tasks-cli": "pnpm build:backend && node dist/backend/tasks-cli.js",
     "build": "pnpm check && pnpm build:backend && pnpm build:web",
