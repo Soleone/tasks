@@ -227,6 +227,20 @@ test("pick.parent: Task actions moves the active task under a parent", async () 
   await expectListFocused();
 });
 
+test("pick.parent: the picker finds a parent older than the newest 50 tasks", async () => {
+  const parent = await workspace.create("Old parent");
+  for (let index = 0; index < 50; index += 1) await workspace.create(`Filler ${index}`);
+  const task = await workspace.create("Task");
+  const { user } = await workspace.render();
+  await expectActive("Task");
+  await user.click(screen.getByRole("button", { name: "Task actions" }));
+  await user.click(await screen.findByRole("menuitem", { name: /Move under/ }));
+  await screen.findByRole("dialog", { name: "Move Task under…" });
+  await searchPicker(user, "Old parent");
+  await user.keyboard("{Enter}");
+  await waitFor(async () => expect((await workspace.task(task.id)).parentId).toBe(parent.id));
+});
+
 test("capture.child: New child in Task actions opens the child editor with focus", async () => {
   const parent = await workspace.create("Parent");
   const { user } = await workspace.render();

@@ -13,10 +13,25 @@ import { getTask, listTasks } from "@/platform/backendClient";
 import { literalWordScore } from "@/components/commandFilter";
 import { Command, PaletteDialog } from "@/components/variants/command";
 import { useLoadOnOpen } from "./useLoadOnOpen";
+import { TASK_LIST_MAX_LIMIT } from "@/backend/protocol";
 
 export type TaskPickerMode = "blocker" | "move";
 
 const NON_CANCELED_TASK_STATUSES = ["open", "in_progress", "paused", "done"] as const;
+
+// The search runs over what is loaded, so every page has to be here, not just the first.
+async function listAllNonCanceledTasks(): Promise<TaskView[]> {
+  const tasks: TaskView[] = [];
+  for (;;) {
+    const page = await listTasks({
+      status: NON_CANCELED_TASK_STATUSES,
+      offset: tasks.length,
+      limit: TASK_LIST_MAX_LIMIT,
+    });
+    tasks.push(...page.tasks);
+    if (page.tasks.length === 0 || tasks.length >= page.total) return tasks;
+  }
+}
 
 function pickerCandidates(all: TaskView[], subject: TaskView, mode: TaskPickerMode): TaskView[] {
   const selectable = all.filter((task) => task.status !== "canceled");
@@ -58,11 +73,11 @@ export function TaskPicker({
     const relationshipIds = [
       ...new Set([...(subject.parentId ? [subject.parentId] : []), ...subject.dependencyIds]),
     ];
-    const [result, relationships] = await Promise.all([
-      listTasks({ status: NON_CANCELED_TASK_STATUSES }),
+    const [tasks, relationships] = await Promise.all([
+      listAllNonCanceledTasks(),
       Promise.all(relationshipIds.map((id) => getTask(id))),
     ]);
-    const byId = new Map(result.tasks.map((task) => [task.id, task]));
+    const byId = new Map(tasks.map((task) => [task.id, task]));
     for (const relationship of relationships) byId.set(relationship.task.id, relationship.task);
     return [...byId.values()];
   }, [subject]);
