@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.7](https://github.com/Soleone/tasks/compare/v0.7.6...v0.7.7) (2026-11-22)
+
+### Features
+
+* serve the full app to a browser from a machine without a desktop ([5615743](https://github.com/Soleone/tasks/commit/56157438779adfbd20d1ac10f59ad0785a7aad91))
+
+### Bug Fixes
+
+* **backend:** count active tasks in category and tag lists ([11854a8](https://github.com/Soleone/tasks/commit/11854a80eaee7aa3345c321e6b1d171fc4bb9ffb))
+
 ## [0.7.6](https://github.com/Soleone/tasks/compare/v0.7.5...v0.7.6) (2026-11-21)
 
 ### Features
