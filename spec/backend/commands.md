@@ -119,7 +119,7 @@ Categories and tags are slugs written into each task (`data.no-labels`), so rena
 | `task.get` | `id` | `task` |
 | `task.list` | filters below | `tasks`, `contextTasks`, `total`, `limit`, `offset`, `workspaceRevision` |
 | `task.completions` | none | `completions`: `[{id, closedAt, category}]` for every done task, for the goal report |
-| `category.list` / `tag.list` | none | `[{slug, taskCount}]`, counting tasks that aren't canceled, most recently updated task first, then by slug |
+| `category.list` / `tag.list` | none | `[{slug, taskCount}]` for slugs on tasks that aren't canceled, counting only open and in-progress tasks, most recently updated task first, then by slug |
 | `query.batch` | `queries`: 1 to 8 of `{command, args}`, each `task.get`, `task.list`, `category.list` or `tag.list` | `results`, one per query in order |
 | `activity.list` | optional `taskId`, `limit`, `since`, `from` | `[{operationId, taskId, taskIds, actor, createdAt, command, before, after}]`, newest first, at most 100. `taskIds` names every task the operation touched |
 | `workspace.info` | none | `state`, `schemaVersion`, `commands`, `issues`, `pendingOperationId`, `workspaceRevision` |

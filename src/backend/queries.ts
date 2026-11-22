@@ -299,9 +299,10 @@ export function executeQuery(
       command === "category.list" ? (task.category === null ? [] : [task.category]) : task.tags;
     for (const slug of slugs) {
       const entry = usage.get(slug);
-      if (!entry) usage.set(slug, { taskCount: 1, lastUpdatedAt: task.updatedAt });
+      const active = task.status === "open" || task.status === "in_progress" ? 1 : 0;
+      if (!entry) usage.set(slug, { taskCount: active, lastUpdatedAt: task.updatedAt });
       else {
-        entry.taskCount += 1;
+        entry.taskCount += active;
         if (task.updatedAt > entry.lastUpdatedAt) entry.lastUpdatedAt = task.updatedAt;
       }
     }
