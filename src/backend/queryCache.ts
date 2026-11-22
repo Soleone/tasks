@@ -140,7 +140,7 @@ function cacheBinding(database: DatabaseSync, root: RootBinding): string {
   if (typeof main?.file !== "string" || main.file === "")
     throw new CommandError("INVALID_STORAGE", "write authority requires a physical cache file");
   const cacheIdentity = lstatSync(main.file, { bigint: true });
-  if (!cacheIdentity.isFile() || cacheIdentity.isSymbolicLink())
+  if (!cacheIdentity.isFile())
     throw new CommandError("INVALID_STORAGE", "write authority requires a regular cache file");
   return JSON.stringify([
     root.rootPath,
@@ -219,7 +219,6 @@ export function synchronizeAuthority(
     !Number.isSafeInteger(state.counter + (snapshot?.tasks.length ?? 0) + 1) ||
     state.revision === Number.MAX_SAFE_INTEGER
   ) {
-    state.binding = binding;
     state.context = randomUUID();
     state.counter = 0;
     state.revision = 0;
