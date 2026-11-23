@@ -1,0 +1,74 @@
+/* The Android shell keeps the page inside its system bars; env() covers browsers drawing under them. */
+.app-shell {
+  padding: max(1rem, env(safe-area-inset-top, 0px)) max(1rem, env(safe-area-inset-right, 0px))
+    max(1rem, env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px));
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    padding: max(2rem, env(safe-area-inset-top, 0px)) max(2rem, env(safe-area-inset-right, 0px))
+      max(2rem, env(safe-area-inset-bottom, 0px)) max(2rem, env(safe-area-inset-left, 0px));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  /* A thumb shows only under the pointer or while scrolling (src/scrollbars.ts), like overlay scrollbars. */
+  :hover,
+  [data-scrolling] {
+    scrollbar-color: var(--border) transparent;
+  }
+
+  /* Android shows no thumb with the colors above, so touch screens draw their own thin one. The standard
+     properties go back to auto because any other value makes Chromium skip ::-webkit-scrollbar. */
+  @media (pointer: coarse) {
+    *,
+    :hover,
+    [data-scrolling] {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+
+    ::-webkit-scrollbar {
+      width: 3px;
+      height: 3px;
+    }
+
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-corner,
+    ::-webkit-scrollbar-thumb {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      border-radius: 3px;
+    }
+
+    [data-scrolling]::-webkit-scrollbar-thumb {
+      background: color-mix(in oklab, var(--foreground) 30%, transparent);
+    }
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  body {
+    @apply h-full overflow-hidden bg-background text-foreground;
+  }
+
+  html {
+    @apply h-full overflow-hidden font-sans;
+  }
+
+  ::selection {
+    background: var(--om-selection);
+    color: var(--om-bright-foreground);
+  }
+}

@@ -1,0 +1,47 @@
+@media (prefers-reduced-motion: reduce) {
+  [data-quest-spotlight],
+  [data-save-tick],
+  [data-count-leave],
+  [data-effort-leave] {
+    display: none;
+  }
+
+  [data-quest-welcome],
+  [data-quest-wave],
+  [data-quest-trophy],
+  [data-quest-sparks] > span,
+  [data-quest-glow],
+  [data-learn-celebrate],
+  [data-learn-finale] [data-learn-ring],
+  [data-learn-finale] [data-learn-track],
+  [data-saved-task="created"],
+  :has(> [data-saved-task="created"]) + *,
+  :has(> [data-saved-task="created"]) + * + *,
+  [data-saved-task]::after,
+  [data-saved-task] [data-task-disclosure],
+  [data-saved-task] [data-slot="item-actions"],
+  [data-exiting-task="true"],
+  [role="option"]:has([data-status-enter="canceled"]) [data-slot="item-title"],
+  .task-completion-icon,
+  .task-completion-icon path,
+  [data-status-enter],
+  [data-status-enter] path,
+  [data-status-enter] line,
+  [data-completion-sheen],
+  [data-priority-enter],
+  [data-effort-enter],
+  [data-effort-notch],
+  [data-effort-notch-closing],
+  [data-count-enter] {
+    animation: none;
+  }
+
+  [data-goal-arc],
+  [data-learn-ring] {
+    transition: none;
+  }
+
+  [data-quest-leaving] {
+    animation-name: quest-card-fade;
+  }
+}
