@@ -453,10 +453,17 @@ export default function App({
     setHelpOpen(true);
   }
 
-  function openThemes(): void {
-    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("themes", fromPalette);
+  // From the palette the active element is its search field, which unmounts
+  // on close, so a layer opened from it inherits the palette's own return
+  // target. Consume it now: otherwise the palette's close would steal focus
+  // back from the layer opening on top of it.
+  function pushOverPalette(id: string): void {
+    focusStack.push(id, helpOpen ? focusStack.restore("help") : undefined);
     setHelpOpen(false);
+  }
+
+  function openThemes(): void {
+    pushOverPalette("themes");
     setThemesOpen(true);
   }
 
@@ -598,23 +605,13 @@ export default function App({
     enterLens({ kind: "done", window: "day", day });
   }
 
-  // From the palette the active element is its search field, which unmounts
-  // on close, so settings inherits the palette's own return target. Consume
-  // it now: otherwise the palette's close would steal focus back from the
-  // settings dialog opening on top of it.
   function openSettings(): void {
-    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("settings", fromPalette);
-    setHelpOpen(false);
+    pushOverPalette("settings");
     setSettingsOpen(true);
   }
 
   function openPicker(mode: TaskPickerMode, subject: TaskView): void {
-    // From the palette, inherit its return target like settings does so the
-    // picker's close restores focus past the unmounted palette search field.
-    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("picker", fromPalette);
-    setHelpOpen(false);
+    pushOverPalette("picker");
     setPicker({ mode, subject });
   }
 
@@ -623,30 +620,22 @@ export default function App({
   }
 
   function openCategoryPicker(): void {
-    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("category-picker", fromPalette);
-    setHelpOpen(false);
+    pushOverPalette("category-picker");
     setCategoryPickerOpen(true);
   }
 
   function openStatusMenu(): void {
-    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("status-menu", fromPalette);
-    setHelpOpen(false);
+    pushOverPalette("status-menu");
     setStatusMenuOpen(true);
   }
 
   function openPriorityMenu(): void {
-    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("priority-menu", fromPalette);
-    setHelpOpen(false);
+    pushOverPalette("priority-menu");
     setPriorityMenuOpen(true);
   }
 
   function openTagPicker(): void {
-    const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("tag-picker", fromPalette);
-    setHelpOpen(false);
+    pushOverPalette("tag-picker");
     setTagPickerOpen(true);
   }
 
