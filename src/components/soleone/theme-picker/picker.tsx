@@ -1,6 +1,3 @@
-"use client"
-
-// oxlint-disable-next-line no-restricted-imports -- the 3D stage needs the raw Backdrop and Popup, which components/ui/dialog styles
 import { Dialog } from "@base-ui/react/dialog"
 import {
   animate,
@@ -28,6 +25,7 @@ import {
 } from "react"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/soleone/tooltip/tooltip"
 import { cn } from "cn"
 import { isInteractiveTarget, revealTheme, useTheme, type ThemeOption } from "@/components/soleone/theme"
 import { ThemePreviewCard, type ThemeTagline } from "./preview-card"
@@ -506,26 +504,35 @@ export function ThemePicker({
       // A chosen theme's reveal hid the cards; they come back, still hidden, for the next open.
       onOpenChangeComplete={(isOpen) => !isOpen && setRevealing(false)}
     >
-      {trigger !== null && (
-        <Dialog.Trigger
-          render={trigger ?? (
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Choose a theme"
-              aria-keyshortcuts={shortcut ? "t" : undefined}
-              title={shortcut ? "Theme (T)" : "Theme"}
-              // No focus ring, ever: focus comes back here each time the picker closes, and a ring
-              // flashing around the icon reads as a glitch. Keyboard focus still shows as a hover fill.
-              // oxlint-disable-next-line shadcn/no-restyle
-              className="relative outline-none focus-visible:border-transparent focus-visible:bg-muted focus-visible:ring-0"
-            >
-              <Palette />
-              <span className="absolute right-1.5 bottom-1.5 size-2 rounded-full bg-primary ring-2 ring-background" />
-            </Button>
-          )}
-        />
+      {trigger === undefined && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Dialog.Trigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Choose a theme"
+                    aria-keyshortcuts={shortcut ? "t" : undefined}
+                    // No focus ring, ever: focus comes back here each time the picker closes, and a ring
+                    // flashing around the icon reads as a glitch. Keyboard focus still shows as a hover fill.
+                    // oxlint-disable-next-line shadcn/no-restyle
+                    className="relative outline-none focus-visible:border-transparent focus-visible:bg-muted focus-visible:ring-0"
+                  >
+                    <Palette />
+                    <span className="absolute right-1.5 bottom-1.5 size-2 rounded-full bg-primary ring-2 ring-background" />
+                  </Button>
+                }
+              />
+            }
+          />
+          <TooltipContent>
+            Theme {shortcut && <Kbd>T</Kbd>}
+          </TooltipContent>
+        </Tooltip>
       )}
+      {trigger && <Dialog.Trigger render={trigger} />}
       <Dialog.Portal keepMounted={warm}>
         <Dialog.Backdrop
           className={cn(
@@ -552,20 +559,28 @@ export function ThemePicker({
               </Button>
             }
           />
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Favorites only"
-            aria-pressed={favoritesOnly}
-            aria-keyshortcuts={favoritesOnlyKey}
-            title={`Favorites only (${favoritesOnlyKey})`}
-            className="absolute top-4 right-14"
-            // The ring keeps focus, so the arrow keys and Enter go on working after a click here.
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => showFavoritesOnly(!favoritesOnly)}
-          >
-            <Star className={cn(favoritesOnly && "fill-current")} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Favorites only"
+                  aria-pressed={favoritesOnly}
+                  aria-keyshortcuts={favoritesOnlyKey}
+                  className="absolute top-4 right-14"
+                  // The ring keeps focus, so the arrow keys and Enter go on working after a click here.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => showFavoritesOnly(!favoritesOnly)}
+                />
+              }
+            >
+              <Star className={cn(favoritesOnly && "fill-current")} />
+            </TooltipTrigger>
+            <TooltipContent>
+              Favorites only <Kbd>{favoritesOnlyKey}</Kbd>
+            </TooltipContent>
+          </Tooltip>
 
           {/* will-change keeps the cards' drawing as the picker grows, instead of redrawing them every frame. */}
           <motion.div
