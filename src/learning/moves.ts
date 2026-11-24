@@ -183,6 +183,18 @@ const MOVE_DEFINITIONS = [
     keyboard: { label: "Move to the top or bottom", keys: [modKey, "Home/End"] },
   },
   {
+    id: "queue.add",
+    keyboard: { label: "Queue a task, or take it out", keys: ["queue.add"] },
+  },
+  {
+    id: "queue.front",
+    keyboard: { label: "Put a task first in the queue", keys: ["queue.front"] },
+  },
+  {
+    id: "queue.lens",
+    keyboard: { label: "Work off the queue", keys: ["queue.lens"] },
+  },
+  {
     id: "copy.text",
     keyboard: { label: "Copy the active task's text", keys: ["copy.text"] },
   },

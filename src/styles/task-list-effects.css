@@ -204,6 +204,55 @@
   }
 }
 
+/* A task coming into the queue: its number slides in from the right for the back of the queue
+ * (`Q`), or drops in from above for the front (`Shift+Q`), passes its place a little and settles. */
+[data-queue-arrive="back"] {
+  animation: task-queue-arrive-back 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+[data-queue-arrive="front"] {
+  animation: task-queue-arrive-front 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes task-queue-arrive-back {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(-2px);
+  }
+}
+
+@keyframes task-queue-arrive-front {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(2px);
+  }
+}
+
+/* A place in the queue that changes rolls like an odometer: toward the front from below,
+ * toward the back from above. */
+[data-queue-roll="earlier"] {
+  animation: task-count-roll-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+[data-queue-roll="later"] {
+  animation: task-queue-roll-later 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes task-queue-roll-later {
+  from {
+    opacity: 0.2;
+    transform: translateY(-100%);
+  }
+}
+
 /* A goal's arc eases to its new length. */
 [data-goal-arc] {
   transition:

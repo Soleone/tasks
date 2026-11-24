@@ -35,6 +35,7 @@ import {
   Tags,
   Trash2,
   Undo2,
+  ListEnd,
   type LucideIcon,
   Menu,
 } from "lucide-react";
@@ -74,6 +75,7 @@ type HelpEntry = {
     | "toggle-done-lens"
     | "toggle-due-lens"
     | "toggle-agents-lens"
+    | "toggle-queue-lens"
     | "widen-done-lens"
     | "open-goal-report"
     | "add-blocker"
@@ -440,6 +442,14 @@ function helpGroups(): { heading: string; entries: HelpEntry[] }[] {
           keywords: "agent claude cli activity history who changed bot ai",
         },
         {
+          label: "Work off the queue",
+          hint: "The tasks you lined up, in your order",
+          action: "toggle-queue-lens",
+          icon: ListEnd,
+          keys: caps("queue.lens"),
+          keywords: "queue next up line order focus work list",
+        },
+        {
           label: "Look further back",
           hint: "Done yesterday, then the last 7 days, then 30",
           action: "widen-done-lens",
@@ -574,6 +584,7 @@ export function HelpPalette({
     "toggle-done-lens": () => onToggleLens("done"),
     "toggle-due-lens": () => onToggleLens("due"),
     "toggle-agents-lens": () => onToggleLens("agents"),
+    "toggle-queue-lens": () => onToggleLens("queue"),
     "widen-done-lens": onWidenDoneLens,
     "open-goal-report": onOpenGoalReport,
     "new-task": onCreate,

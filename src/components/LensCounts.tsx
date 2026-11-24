@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import { Bot, CalendarDays, CircleCheck } from "lucide-react";
+import { Bot, CalendarDays, CircleCheck, ListEnd } from "lucide-react";
 import { preventFocusSteal } from "@/navigation";
 import { BindingKbd } from "@/components/variants/kbd";
 import { ariaShortcut, type BindingId } from "@/keymap";
@@ -207,6 +207,22 @@ export function DueNow(props: LensCountProps): ReactElement | null {
       <span className="text-destructive" data-lens-number>
         {props.total}
       </span>
+    </LensCount>
+  );
+}
+
+/** The tasks you lined up to work off next, in the accent color like the queue's numbers. */
+export function Queue(props: LensCountProps): ReactElement | null {
+  return (
+    <LensCount
+      {...props}
+      kind="queue"
+      label="queued"
+      shortcut="queue.lens"
+      showLabel="Work off the queue"
+    >
+      <ListEnd data-icon="inline-start" aria-hidden="true" className="text-primary" />
+      <span data-lens-number>{props.total}</span>
     </LensCount>
   );
 }

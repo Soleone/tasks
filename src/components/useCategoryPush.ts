@@ -27,7 +27,13 @@ type Push = {
   /** Clips the pushed-out rows at the list's edges. */
   stage: HTMLElement | null;
   played: boolean;
+  /** Rows fold away and unfold in place instead of leaving past the edge, for the queue lens. */
+  fold: boolean;
 };
+
+/** A row folded flat about its middle line. */
+const FOLDED: Keyframe = { opacity: 0, transform: "scaleY(0)" };
+const UNFOLDED: Keyframe = { opacity: 1, transform: "none" };
 
 const rowsOf = (list: HTMLElement) => list.querySelectorAll<HTMLElement>("[data-task-id]");
 
@@ -93,7 +99,9 @@ function pushOut(push: Push, view: DOMRect, leaving: Shot[]): void {
     stage.append(ghost);
     push.animations.push(
       ghost.animate(
-        [{ transform: "none" }, { transform: `translateX(${view.left - box.right}px)` }],
+        push.fold
+          ? [UNFOLDED, FOLDED]
+          : [{ transform: "none" }, { transform: `translateX(${view.left - box.right}px)` }],
         {
           duration: PUSH_MS,
           delay: index * step,
@@ -147,7 +155,9 @@ function play(push: Push, list: HTMLElement): void {
   entering.forEach(([row, box], index) => {
     push.animations.push(
       row.animate(
-        [{ transform: `translateX(${view.left - box.right}px)` }, { transform: "none" }],
+        push.fold
+          ? [FOLDED, UNFOLDED]
+          : [{ transform: `translateX(${view.left - box.right}px)` }, { transform: "none" }],
         { duration: PUSH_MS, delay: enterAt + index * step, easing: SLIDE_EASE, fill: "backwards" },
       ),
     );
@@ -156,7 +166,9 @@ function play(push: Push, list: HTMLElement): void {
 
 /**
  * Setting, changing or clearing the category filter pushes the rows that drop out off the list's
- * left edge and settles the rest into place. A lens opening or closing turns the list instead.
+ * left edge and settles the rest into place. A lens opening or closing turns the list instead,
+ * except the queue: opening it folds the other rows away and gathers the queued ones into queue
+ * order; closing it spreads them back and unfolds the others between them.
  */
 export function useCategoryPush(
   list: RefObject<HTMLElement | null>,
@@ -180,11 +192,12 @@ export function useCategoryPush(
     const before = was.current;
     if (before.categorySlug === categorySlug && before.lensKind === lensKind) return;
     was.current = { categorySlug, lensKind };
+    const fold = before.lensKind !== lensKind;
+    const pushes = !fold || before.lensKind === "queue" || lensKind === "queue";
     // Measured before stopping, so a quick reversal starts from where rows are mid-flight.
-    const rows =
-      list.current && before.lensKind === lensKind && flightsPlay() ? snapshot(list.current) : null;
+    const rows = list.current && pushes && flightsPlay() ? snapshot(list.current) : null;
     stop();
-    if (rows) push.current = { rows, animations: [], stage: null, played: false };
+    if (rows) push.current = { rows, animations: [], stage: null, played: false, fold };
   }, [categorySlug, lensKind, list]);
 
   // Runs after the effect above, so a view that changes and loads in one commit still measures first.

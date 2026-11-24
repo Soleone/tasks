@@ -5,7 +5,13 @@ import type { ClassificationOption, TaskView } from "./taskView";
 import type { VisibleTaskRow } from "./taskTree";
 import { forwardStatusTransition, reverseStatusTransition } from "./taskStatusCycle";
 import { taskStatusMeta } from "./taskFilters";
-import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage } from "./TaskRow";
+import {
+  TaskRow,
+  TaskStatusDisplay,
+  TaskStatusToggle,
+  taskContextMessage,
+  type QueueArrival,
+} from "./TaskRow";
 import { TaskComposer, type ComposerState, type TaskCreateDraft } from "./TaskComposer";
 import { preventFocusSteal } from "@/navigation";
 import type { TaskMutationResult } from "@/platform/backendClient";
@@ -35,6 +41,9 @@ type TaskOptionProps = {
   exitingTaskIds: ReadonlySet<string>;
   showDetails: boolean;
   note?: string;
+  queuePosition: number | undefined;
+  queueColumn: boolean;
+  queueArrival: QueueArrival | undefined;
   showCompletedAt: boolean;
   completedClockOnly: boolean;
   hiddenCategorySlug: string | null;
@@ -62,6 +71,9 @@ export const TaskOption = memo(function TaskOption({
   exitingTaskIds,
   showDetails,
   note,
+  queuePosition,
+  queueColumn,
+  queueArrival,
   showCompletedAt,
   completedClockOnly,
   hiddenCategorySlug,
@@ -110,6 +122,9 @@ export const TaskOption = memo(function TaskOption({
           blockedByLabels={blockedByLabels}
           showDetails={showDetails}
           note={note}
+          queuePosition={queuePosition}
+          queueColumn={queueColumn}
+          queueArrival={queueArrival}
           showCompletedAt={showCompletedAt}
           completedClockOnly={completedClockOnly}
           contextOnly={row.contextOnly}

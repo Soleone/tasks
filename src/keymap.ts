@@ -40,6 +40,8 @@ export const BINDINGS = [
   },
   { id: "pick.blocker", label: "Add blocker", group: "Task actions", key: "B" },
   { id: "pick.parent", label: "Move under…", group: "Task actions", key: "M" },
+  { id: "queue.add", label: "Queue or unqueue task", group: "Task actions", key: "Q" },
+  { id: "queue.front", label: "Queue task first", group: "Task actions", key: "Shift+Q" },
   { id: "home.task-context-menu", label: "Open task menu", group: "Task actions", key: "A" },
   { id: "undo.latest", label: "Undo last change", group: "Task actions", key: "Mod+Z" },
   { id: "redo.latest", label: "Redo last change", group: "Task actions", key: "Mod+Shift+Z" },
@@ -52,6 +54,7 @@ export const BINDINGS = [
   { id: "done.lens-window", label: "Look further back", group: "Workspace", key: "Shift+D" },
   { id: "due.lens", label: "Due now", group: "Workspace", key: "!" },
   { id: "agents.lens", label: "Changed by agents", group: "Workspace", key: "Shift+A" },
+  { id: "queue.lens", label: "Work off the queue", group: "Workspace", key: "W" },
   { id: "goals.report", label: "Goal report", group: "Workspace", key: "G" },
   {
     id: "goals.report-range",

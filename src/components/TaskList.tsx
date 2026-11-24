@@ -15,7 +15,7 @@ import {
 import { flushSync } from "react-dom";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskEffort, TaskPriority, TaskStatus } from "@/backend/taskModel";
-import type { TaskTransitionCommand } from "@/backend/protocol";
+import type { TaskReorderPlacement, TaskTransitionCommand } from "@/backend/protocol";
 import type { ClassificationOption, TaskView } from "./taskView";
 import {
   EXACT_STATUS_META,
@@ -30,7 +30,7 @@ import {
 } from "@/components/taskFilters";
 import { lensPhrase, type GoalLens, type ListLens } from "./listLens";
 import type { GoalsToday } from "@/goals";
-import { CategoryFact } from "./TaskRow";
+import { CategoryFact, type QueueArrival } from "./TaskRow";
 import {
   InlineTaskComposer,
   isEditorSaving,
@@ -162,6 +162,8 @@ type TaskListProps = {
   onGoalLens: (goal: GoalLens | undefined) => void;
   /** Who last changed each task the agents lens shows, by task id. */
   agentNotes: ReadonlyMap<string, string>;
+  /** Each queued task's place in the queue, 1 for the front, by task id. */
+  queuePositions: ReadonlyMap<string, number>;
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
   onToggleStatusPreset: () => void;
@@ -277,6 +279,7 @@ export function TaskList({
   week,
   onGoalLens,
   agentNotes,
+  queuePositions,
   statusPreset,
   exactStatus,
   onToggleStatusPreset,
@@ -378,6 +381,11 @@ export function TaskList({
   const [glyphFeedback, setGlyphFeedback] = useState<{ taskId: string; version: number } | null>(
     null,
   );
+  // How the task this client last queued came in, so its number arrives from that end.
+  const [queueArrival, setQueueArrival] = useState<{
+    taskId: string;
+    arrival: QueueArrival;
+  } | null>(null);
   const { sheenSteps, playSheen } = useCompletionSheen();
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
   const filterFeedback = useFlashTooltip(filterFeedbackVersion, TOGGLE_FEEDBACK_DURATION_MS);
@@ -451,9 +459,14 @@ export function TaskList({
       if (unopened.length > 0) setExpandedIds((previous) => new Set([...previous, ...unopened]));
     }
   }
+  const flat = lens?.kind === "queue";
   const savedRows = useMemo(
-    () => visibleTaskRows(tasks, expandedIds, shownContextTasks, contextOrder),
-    [tasks, expandedIds, shownContextTasks, contextOrder],
+    () =>
+      // The queue is one line, so a queued subtask stands on its own (`queue.lens`).
+      flat
+        ? tasks.map((task) => ({ task, depth: 0 as const, hasChildren: false, contextOnly: false }))
+        : visibleTaskRows(tasks, expandedIds, shownContextTasks, contextOrder),
+    [flat, tasks, expandedIds, shownContextTasks, contextOrder],
   );
   // A filter change resets the selection and hides any previous reorder preview.
   const filterIdentity = [
@@ -474,6 +487,7 @@ export function TaskList({
         : orderedTaskRows(savedRows, pendingRowOrder.ranks),
     [savedRows, pendingRowOrder, sortField, filterIdentity],
   );
+  const queueColumn = visibleRows.some((row) => queuePositions.has(row.task.id));
   const savedRowsRef = useRef(savedRows);
   useLayoutEffect(() => {
     savedRowsRef.current = savedRows;
@@ -990,6 +1004,11 @@ export function TaskList({
   async function reorderSelection(direction: TaskMoveDirection): Promise<void> {
     const rows = visibleRowsRef.current;
     const active = rows.find((row) => row.task.id === selectionHandle.getActiveTask()?.id);
+    // In the queue, manual order is the queue's own (`queue.move`).
+    if (lens?.kind === "queue" && sortField === "manual") {
+      if (active) await moveInQueue(active.task, direction);
+      return;
+    }
     const reason = reorderDisabledReason(active);
     if (reason) {
       onAnnounce(reason);
@@ -1382,19 +1401,74 @@ export function TaskList({
 
   function setTaskPriority(task: TaskView, priority: TaskPriority): Promise<void> {
     if (task.priority === priority) return Promise.resolve();
-    return setTaskLevel(task, { priority }, `priority ${priorityMeta(priority).label}`);
+    return setTaskLevel(task, { priority }, `priority ${priorityMeta(priority).label}`, {
+      ...task,
+      priority,
+    });
   }
 
   function setTaskEffort(task: TaskView, effort: TaskEffort): Promise<void> {
     if (task.effort === effort) return Promise.resolve();
-    return setTaskLevel(task, { effort }, `effort ${EFFORT_LABELS[effort]}`);
+    return setTaskLevel(task, { effort }, `effort ${EFFORT_LABELS[effort]}`, { ...task, effort });
   }
 
-  function setTaskLevel(task: TaskView, change: LevelChange, label: string): Promise<void> {
+  /**
+   * `Q` puts the task at the back of the queue, or takes it out when it is already queued;
+   * `Shift+Q` puts it at the front, wherever it stood.
+   */
+  function queueTask(task: TaskView, front: boolean): Promise<void> {
+    if (task.status === "done" || task.status === "canceled") {
+      announce("Done and canceled tasks can't be queued.");
+      return Promise.resolve();
+    }
+    if (!front && task.queue !== null)
+      return setTaskLevel(task, { queue: null }, "out of the queue", task);
+    setQueueArrival({ taskId: task.id, arrival: front ? "front" : "back" });
+    return setTaskLevel(
+      task,
+      { queue: front ? { first: true } : { last: true } },
+      front ? "first in the queue" : "queued",
+      task,
+    );
+  }
+
+  /** Ctrl/⌘ and the arrows in the queue lens move the active task through the queue. */
+  function moveInQueue(task: TaskView, direction: TaskMoveDirection): Promise<void> {
+    if (task.queue === null) return Promise.resolve();
+    const queued = visibleRowsRef.current
+      .filter((row) => row.task.queue !== null)
+      .map((row) => row.task);
+    const index = queued.findIndex((entry) => entry.id === task.id);
+    const placement: TaskReorderPlacement | null =
+      direction === "start"
+        ? index > 0
+          ? { first: true }
+          : null
+        : direction === "end"
+          ? index < queued.length - 1
+            ? { last: true }
+            : null
+          : direction === "up"
+            ? index > 0
+              ? { beforeId: queued[index - 1].id }
+              : null
+            : index < queued.length - 1
+              ? { afterId: queued[index + 1].id }
+              : null;
+    if (placement === null) return Promise.resolve();
+    return setTaskLevel(task, { queue: placement }, "moved in the queue", task);
+  }
+
+  function setTaskLevel(
+    task: TaskView,
+    change: LevelChange,
+    label: string,
+    shown: TaskView,
+  ): Promise<void> {
     if (mutationPending.current.has(task.id)) return Promise.resolve();
     return writeOptimistically(
       task,
-      { ...task, ...change },
+      shown,
       async (confirmed) => {
         const previousReceipt = levelReceipts.current.get(task.id);
         const receipt =
@@ -1410,8 +1484,8 @@ export function TaskList({
       },
       (previous, result) => {
         if (result.operationId) recordOperation(result.operationId, [previous], [result.task]);
-        // The status glyph shows priority and effort, not the description.
-        if (result.changed !== false && !("description" in change))
+        // The status glyph shows priority and effort, not the description or the queue.
+        if (result.changed !== false && ("priority" in change || "effort" in change))
           setGlyphFeedback({ taskId: task.id, version: result.task.version });
         announce(`${task.title}: ${label}`);
       },
@@ -1529,6 +1603,10 @@ export function TaskList({
         returnToList();
         onMoveUnder(task);
       },
+      onQueue: (task) => {
+        practice("queue.add", "pointer");
+        void queueTask(task, false);
+      },
       onCreateChild: (task) => {
         practice("capture.child", "pointer");
         returnToList();
@@ -1580,7 +1658,7 @@ export function TaskList({
   const handleOptionCopyImage = useStableHandler(copyNewestImage);
   const handleOptionEditDescription = useStableHandler(
     (task: TaskView, description: string): void =>
-      void setTaskLevel(task, { description }, "checklist updated"),
+      void setTaskLevel(task, { description }, "checklist updated", { ...task, description }),
   );
   const handleOptionContextActions = useStableHandler(contextActions);
 
@@ -1616,6 +1694,7 @@ export function TaskList({
       openCategoryPicker,
       openTagPicker,
       addBlocker: onAddBlocker,
+      queueTask,
       toggleLens: onToggleLens,
       widenDoneLens: onWidenDoneLens,
       openGoalReport: onOpenGoalReport,
@@ -1977,6 +2056,11 @@ export function TaskList({
                     exitingTaskIds={exitingTaskIds}
                     showDetails={detailsShownFor(row.task.id)}
                     note={lens?.kind === "agents" ? agentNotes.get(row.task.id) : undefined}
+                    queuePosition={queuePositions.get(row.task.id)}
+                    queueColumn={queueColumn}
+                    queueArrival={
+                      queueArrival?.taskId === row.task.id ? queueArrival.arrival : undefined
+                    }
                     showCompletedAt={sortField === "closed"}
                     completedClockOnly={
                       lens?.kind === "done" &&

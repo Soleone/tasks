@@ -44,7 +44,7 @@ import { HelpPalette } from "@/components/HelpPalette";
 import { LearnIcon } from "@/components/LearnIcon";
 import { LearnPanel } from "@/components/LearnPanel";
 import { QuestCard } from "@/components/QuestCard";
-import { AgentChanges, DoneToday, DueNow } from "@/components/LensCounts";
+import { AgentChanges, DoneToday, DueNow, Queue } from "@/components/LensCounts";
 import { ConflictCount, ConflictDialog } from "@/components/SyncConflicts";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { useTheme } from "@/components/soleone/theme";
@@ -275,7 +275,14 @@ export default function App({
     isCurrentViewMatch,
   } = taskView;
   const [conflictsOpen, setConflictsOpen] = useState(false);
-  const { doneToday: doneTodayCount, dueNow: dueNowCount, goals, week } = useHeaderCounts(tasks);
+  const {
+    doneToday: doneTodayCount,
+    dueNow: dueNowCount,
+    queue,
+    goals,
+    week,
+  } = useHeaderCounts(tasks);
+  const queuePositions = useMemo(() => new Map(queue.map((id, index) => [id, index + 1])), [queue]);
   const doneHistory = useDoneHistory(report !== null, tasks);
   // A day from the report shows that day's goals in the done lens.
   const lensGoals =
@@ -485,13 +492,14 @@ export default function App({
       categoryFilter: null,
       sortDirection: "desc" as const,
     };
-    // Done sorts by its own Completed order; due sorts soonest first; agents, latest change first.
+    // Done sorts by its own Completed order; due sorts soonest first; agents, latest change first;
+    // the queue in its manual order, which is the queue's own.
     return next.kind === "done"
       ? { ...cleared, exactStatus: "done", sortField, completedSort: true }
       : {
           ...cleared,
           exactStatus: null,
-          sortField: next.kind === "due" ? "due" : "updated",
+          sortField: next.kind === "due" ? "due" : next.kind === "queue" ? "manual" : "updated",
           completedSort,
         };
   }
@@ -842,6 +850,14 @@ export default function App({
           {/* The count stands apart from the joined group, so its pressed state keeps round corners. */}
           <div className="flex items-center">
             <ConflictCount total={syncConflicts.length} onOpen={() => setConflictsOpen(true)} />
+            <Queue
+              total={queue.length}
+              lensOn={lens?.kind === "queue"}
+              onToggleLens={() => {
+                practice("queue.lens", "pointer");
+                toggleLens("queue");
+              }}
+            />
             <AgentChanges
               total={agentChanges.total}
               agents={[...new Set(agentChanges.changes.map((change) => change.agent))]}
@@ -982,6 +998,7 @@ export default function App({
           goals={lensGoals}
           week={lens?.kind === "done" && lens.day === undefined ? week : null}
           onGoalLens={narrowDoneLens}
+          queuePositions={queuePositions}
           agentNotes={agentNotes}
           statusPreset={statusPreset}
           exactStatus={exactStatus}

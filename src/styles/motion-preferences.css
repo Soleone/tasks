@@ -32,6 +32,8 @@
   [data-effort-enter],
   [data-effort-notch],
   [data-effort-notch-closing],
+  [data-queue-arrive],
+  [data-queue-roll],
   [data-count-enter] {
     animation: none;
   }

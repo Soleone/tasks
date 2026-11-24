@@ -453,6 +453,7 @@ export function useWorkspaceActions({
       tags: literal.tags.map((slug) => ({ slug, label: slug })),
       due: literal.due,
       effort: DEFAULT_EFFORT,
+      queue: null,
       parentId: draft.parentId ?? null,
       dependencyIds: [],
       attachments: draft.attachments,

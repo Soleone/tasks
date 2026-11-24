@@ -50,12 +50,14 @@ List keys work anywhere on the home screen while no field, editor or dialog has 
 | `Ctrl+Y` / `Ctrl/⌘+Shift+Z` | Redo this client's most recently undone change | `redo.latest` |
 | `B` | Add or remove a blocker | `pick.blocker` |
 | `M` | Move under another task, or remove the parent | `pick.parent` |
+| `Q` / `Shift+Q` | Queue the active task, or take it out / put it first in the queue | `queue.add`, `queue.front` |
 | `V` / `Shift+V` | Toggle details of the active task / of all tasks | `details.toggle-active`, `details.toggle-all` |
 | `O` | Open the first link in the active task | `details.open-link` |
 | `D` | Tasks done in the last 24 hours, or back to your list | `done.lens`, `lens.back` |
 | `Shift+D` | Look further back for done tasks | `done.lens-window` |
 | `!` | Tasks due today or late, or back to your list | `due.lens`, `lens.back` |
 | `Shift+A` | Tasks agents changed since you last looked, or back to your list | `agents.lens`, `lens.back` |
+| `W` | The queue, to work it off, or back to your list | `queue.lens`, `lens.back` |
 | `G` / `Shift+G` | Goal report by month / by year, or back to your list | `goals.report`, `goals.report-keys` |
 | `Up` `Down` `Home` `End` | Move the active row | `home.arrows`, `home.home-end` |
 | `Left` / `Right` | Parent, collapse, expand, category | `home.left`, `home.right-expand`, `home.right-category` |

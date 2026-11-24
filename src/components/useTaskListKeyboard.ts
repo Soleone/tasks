@@ -79,6 +79,7 @@ type HomeShortcutActions = {
   openCategoryPicker: () => void;
   openTagPicker: () => void;
   addBlocker: (task: TaskView) => void;
+  queueTask: (task: TaskView, front: boolean) => Promise<void>;
   toggleLens: (kind: ListLens["kind"]) => void;
   widenDoneLens: () => void;
   openGoalReport: (range: ReportRange) => void;
@@ -268,6 +269,11 @@ function runBinding(id: BindingId, event: KeyboardEvent, actions: HomeShortcutAc
       if (!task) return;
       practice("pick.parent");
       return actions.moveUnder(task);
+    case "queue.add":
+    case "queue.front":
+      if (!task) return;
+      practice(id);
+      return void actions.queueTask(task, id === "queue.front");
     case "home.task-context-menu":
       if (task) actions.openTaskMenu(task);
       return;
@@ -295,6 +301,9 @@ function runBinding(id: BindingId, event: KeyboardEvent, actions: HomeShortcutAc
       return actions.toggleLens("due");
     case "agents.lens":
       return actions.toggleLens("agents");
+    case "queue.lens":
+      practice("queue.lens");
+      return actions.toggleLens("queue");
     case "goals.report":
       practice("goals.report");
       return actions.openGoalReport("month");

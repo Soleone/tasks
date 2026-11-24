@@ -14,7 +14,7 @@ type LensKind = ListLens["kind"];
 type Axis = "X" | "Y";
 
 /** Done turns sideways like a card; due turns over the top like a page on a flip calendar. */
-const LENS_AXIS: Record<LensKind, Axis> = { done: "Y", due: "X", agents: "Y" };
+const LENS_AXIS: Record<Exclude<LensKind, "queue">, Axis> = { done: "Y", due: "X", agents: "Y" };
 
 /** A turn about the list's center line on `axis`, seen from a fixed distance. */
 const turn = (axis: Axis, degrees: number, sink = ""): string =>
@@ -244,10 +244,11 @@ export function useLensFlip(
     if (leaving === lensKind) return;
     wasKind.current = lensKind;
     stop();
-    if (!flightsPlay()) return;
+    // The queue gathers its rows instead of turning (useCategoryPush).
+    if (!flightsPlay() || lensKind === "queue" || leaving === "queue") return;
     const next: Flip = {
-      // One of the two is a lens, since they differ.
-      axis: LENS_AXIS[(lensKind ?? leaving) as LensKind],
+      // One of the two is a lens other than the queue, since they differ.
+      axis: LENS_AXIS[(lensKind ?? leaving) as keyof typeof LENS_AXIS],
       direction: lensKind ? 1 : -1,
       entering: lensKind,
       startedAt: performance.now(),

@@ -9,7 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { ClassificationToken } from "@/backend/taskText";
-import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
+import { compareQueue, type TaskPriority, type TaskStatus } from "@/backend/taskModel";
 import type { TaskListHandle } from "@/components/TaskList";
 import type { ClassificationOption, TaskView } from "@/components/taskView";
 import { contextTaskIds, taskGroupOrder } from "@/components/taskTree";
@@ -109,6 +109,7 @@ export function useWorkspaceTasks({
         const exact = exactStatusRef.current;
         const { statuses: lensStatuses, ...lensBounds } =
           lensRef.current === null ? { statuses: undefined } : lensFilter(lensRef.current);
+        const queueLens = lensRef.current?.kind === "queue";
         const statuses =
           lensStatuses ?? (exact !== null ? [exact] : presetStatuses(statusPresetRef.current));
         // Every category, not just this view's, so the rows' category column keeps its width and
@@ -129,10 +130,13 @@ export function useWorkspaceTasks({
               // A goal lens's category replaces the view's.
               ...lensBounds,
               limit,
-              sort: sortFieldRef.current,
-              direction: sortDirectionRef.current,
-              includeAncestors: true,
-              includeDescendants: true,
+              // In the queue, manual order is the queue's own, and like manual order it never reverses.
+              ...(queueLens && sortFieldRef.current === "manual"
+                ? { sort: "queue", direction: "asc" }
+                : { sort: sortFieldRef.current, direction: sortDirectionRef.current }),
+              // The queue is one line, so its subtasks come without their trees.
+              includeAncestors: !queueLens,
+              includeDescendants: !queueLens,
             },
           ],
           !offset,
@@ -444,6 +448,9 @@ export function useWorkspaceTasks({
       }
     }
     if (removedTask) freezeContextOrder();
+    // A move in the queue changes no membership, so the queue's order is kept here.
+    if (lens?.kind === "queue" && sortField === "manual")
+      nextTasks = [...nextTasks].sort(compareQueue);
     setTasks(nextTasks);
     if (totalDelta !== 0) setTotal((previous) => Math.max(previous + totalDelta, 0));
     syncContextTasks(nextTasks, updatedTasks);
