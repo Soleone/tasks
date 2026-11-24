@@ -42,15 +42,14 @@ test("move placements preserve selected siblings and report visible boundaries",
   const rows = [row("a"), row("b"), row("c"), row("d")];
   const selected = [rows[1], rows[2]];
 
-  assert.deepEqual(placementForMove("up", rows[1], selected, rows), { beforeId: "a" });
-  assert.deepEqual(placementForMove("down", rows[1], selected, rows), { afterId: "d" });
-  assert.deepEqual(placementForMove("start", rows[1], selected, rows), { beforeId: "a" });
-  assert.deepEqual(placementForMove("end", rows[1], selected, rows), { afterId: "d" });
-  assert.equal(placementForMove("up", rows[0], [rows[0]], rows), null);
-  assert.equal(placementForMove("start", rows[0], [rows[0]], rows), null);
-  assert.equal(placementForMove("down", rows[3], [rows[3]], rows), null);
-  assert.equal(placementForMove("end", rows[3], [rows[3]], rows), null);
-  assert.equal(placementForMove("up", rows[1], [row("missing")], rows), null);
+  assert.deepEqual(placementForMove("up", selected, rows), { beforeId: "a" });
+  assert.deepEqual(placementForMove("down", selected, rows), { afterId: "d" });
+  assert.deepEqual(placementForMove("start", selected, rows), { beforeId: "a" });
+  assert.deepEqual(placementForMove("end", selected, rows), { afterId: "d" });
+  assert.equal(placementForMove("up", [rows[0]], rows), null);
+  assert.equal(placementForMove("start", [rows[0]], rows), null);
+  assert.equal(placementForMove("down", [rows[3]], rows), null);
+  assert.equal(placementForMove("end", [rows[3]], rows), null);
 });
 
 test("reorder refresh checks selection by membership", () => {
