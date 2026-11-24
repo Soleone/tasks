@@ -72,6 +72,7 @@ Every task file has these 14 required fields and may have the optional fields be
 | `attachments` | File names in `attachments/`, unique, in the order they were added, at most 10 | `[]` |
 | `due` | A calendar date, `YYYY-MM-DD`, with no time or zone | `null` |
 | `effort` | How big the work is: integer 1 (tiny) to 5 (huge) | `3` (normal) |
+| `queue` | Where the task stands in the queue: an order key like `orderKey`, compared the same way. Only open, in-progress and paused tasks have one | absent (not queued) |
 | `meta` | Data other programs keep on the task: an object whose keys are client slugs (`factory`) and whose values are objects of any JSON. At most 65,536 UTF-16 units as written. Tasks never reads or shows it | `{}` |
 
 | Rule | Then |

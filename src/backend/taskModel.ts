@@ -29,6 +29,8 @@ export type CanonicalTask = {
   due?: string | null;
   effort?: TaskEffort;
   meta?: TaskMeta;
+  /** Where the task stands in the queue, an order key like `orderKey`; absent when not queued. */
+  queue?: string;
 };
 
 const requiredFields = [
@@ -47,7 +49,7 @@ const requiredFields = [
   "updatedAt",
   "closedAt",
 ];
-const optionalFields = ["attachments", "due", "effort", "meta"];
+const optionalFields = ["attachments", "due", "effort", "meta", "queue"];
 export const MAX_ATTACHMENTS = 10;
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const ATTACHMENT_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
@@ -204,11 +206,24 @@ export function validateTask(value: unknown, filenameId: string): CanonicalTask 
   const terminal = value.status === "done" || value.status === "canceled";
   if (terminal ? !isTimestamp(value.closedAt) : value.closedAt !== null)
     invalidTask("closedAt/status");
+  if (value.queue !== undefined && (terminal || !isOrderKey(value.queue))) invalidTask("queue");
   return value as CanonicalTask;
 }
 
-export function compareTasks(left: CanonicalTask, right: CanonicalTask): number {
+export function compareTasks(
+  left: Pick<CanonicalTask, "id" | "orderKey">,
+  right: Pick<CanonicalTask, "id" | "orderKey">,
+): number {
   if (left.orderKey !== right.orderKey) return left.orderKey < right.orderKey ? -1 : 1;
+  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+}
+
+/** Queue order, like `compareTasks` over `queue`; both tasks must be queued. */
+export function compareQueue(
+  left: { id: string; queue?: string | null },
+  right: { id: string; queue?: string | null },
+): number {
+  if (left.queue !== right.queue) return left.queue! < right.queue! ? -1 : 1;
   return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }
 

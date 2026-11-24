@@ -46,11 +46,9 @@ export function applyStatus(
     throw new CommandError("INVALID_TRANSITION", "status transition is not allowed");
   if (task.status === transition.target) return { task, changed: false };
   const status = transition.target;
-  return {
-    task: validateTask(
-      { ...task, status, closedAt: status === "done" || status === "canceled" ? at : null },
-      task.id,
-    ),
-    changed: true,
-  };
+  const closed = status === "done" || status === "canceled";
+  const next: CanonicalTask = { ...task, status, closedAt: closed ? at : null };
+  // A finished task has nothing left to work off, so it leaves the queue.
+  if (closed) delete next.queue;
+  return { task: validateTask(next, task.id), changed: true };
 }

@@ -157,6 +157,7 @@ test("envelope correlation, strict types, unsupported names and previews cannot 
       "due",
       "effort",
       "meta",
+      "queue",
       "version",
       "blockedByIds",
     ].sort(),

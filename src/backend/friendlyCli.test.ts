@@ -147,9 +147,15 @@ for (const id of ["cli-literal", "cli-text", "cli-key-context"]) {
             // Results fill in optional fields that the file leaves out at their default.
             Object.entries(task).filter(
               ([field]) =>
-                !["version", "blockedByIds", "attachments", "due", "effort", "meta"].includes(
-                  field,
-                ),
+                ![
+                  "version",
+                  "blockedByIds",
+                  "attachments",
+                  "due",
+                  "effort",
+                  "meta",
+                  "queue",
+                ].includes(field),
             ),
           ),
         );

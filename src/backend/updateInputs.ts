@@ -2,6 +2,7 @@ import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
 import { isDueDate } from "./dueDate.js";
 import {
+  compareQueue,
   DEFAULT_EFFORT,
   isAttachmentList,
   isEffort,
@@ -10,6 +11,7 @@ import {
 } from "./taskModel.js";
 import type { CanonicalTask, TaskEffort, TaskMeta } from "./taskModel.js";
 import { invalidInput, parseShorthand, slugInput } from "./shorthand.js";
+import { allocateKeys, parsePlacement, type Placement } from "./taskOrdering.js";
 
 export type UpdateInput = {
   id: string;
@@ -25,6 +27,8 @@ export type UpdateInput = {
       meta: Record<string, TaskMeta[string] | null>;
     }
   >;
+  /** Where the task goes in the queue, like a reorder placement, or `null` to take it out. */
+  queue?: Placement | null;
 };
 
 /** The fields typed text sets, so a patch takes either the text or these, never both. */
@@ -129,19 +133,26 @@ export function parseUpdate(args: Record<string, unknown>): UpdateInput {
     "tags",
     "due",
     "effort",
+    "queue",
     "attachments",
     "meta",
   ]);
-  return { ...parseTaskVersion(args), patch: parseContentPatch(args) };
+  const input: UpdateInput = { ...parseTaskVersion(args), patch: parseContentPatch(args) };
+  if (args.queue !== undefined)
+    input.queue = args.queue === null ? null : parsePlacement(args.queue);
+  return input;
 }
 
 export function applyUpdate(
   task: CanonicalTask,
   input: UpdateInput,
   at: string,
+  tasks: readonly CanonicalTask[],
 ): { task: CanonicalTask; changed: boolean } {
   const { meta, ...fields } = input.patch;
   const next: CanonicalTask = { ...task, ...fields };
+  if (input.queue === null) delete next.queue;
+  else if (input.queue !== undefined) next.queue = queueKey(task, input.queue, tasks);
   if (meta !== undefined) next.meta = mergeMeta(task.meta ?? {}, meta);
   if (next.meta !== undefined && Object.keys(next.meta).length === 0) delete next.meta;
   if (next.attachments?.length === 0) delete next.attachments;
@@ -154,11 +165,36 @@ export function applyUpdate(
   )
     next.text = null;
   const changed = JSON.stringify(next) !== JSON.stringify(task);
-  // Other programs' data isn't an edit the owner made, so it leaves the task's time alone.
-  const edited =
-    JSON.stringify({ ...next, meta: null }) !== JSON.stringify({ ...task, meta: null });
+  // Other programs' data and the queue aren't edits to the task, so they leave its time alone.
+  const edited = JSON.stringify(ownFields(next)) !== JSON.stringify(ownFields(task));
   if (edited) next.updatedAt = at;
   return { task: validateTask(next, task.id), changed };
+}
+
+function ownFields({ meta: _meta, queue: _queue, ...fields }: CanonicalTask) {
+  return fields;
+}
+
+/** A queue key that puts the task at `placement` among the other queued tasks. */
+function queueKey(
+  task: CanonicalTask,
+  placement: Placement,
+  tasks: readonly CanonicalTask[],
+): string {
+  if (task.status === "done" || task.status === "canceled") invalidInput("queue");
+  const queued = tasks
+    .filter((other) => other.queue !== undefined && other.id !== task.id)
+    .sort(compareQueue);
+  let index: number;
+  if ("first" in placement) index = 0;
+  else if ("last" in placement) index = queued.length;
+  else {
+    const anchorId = "beforeId" in placement ? placement.beforeId : placement.afterId;
+    const anchor = queued.findIndex((other) => other.id === anchorId);
+    if (anchor === -1) invalidInput("queue anchor");
+    index = anchor + ("afterId" in placement ? 1 : 0);
+  }
+  return allocateKeys(queued[index - 1]?.queue ?? null, queued[index]?.queue ?? null, 1)[0];
 }
 
 function mergeMeta(current: TaskMeta, patch: NonNullable<UpdateInput["patch"]["meta"]>): TaskMeta {

@@ -20,7 +20,7 @@ function invalidTaskResult(): never {
 
 export function parseTaskProjection(value: unknown): TaskProjection {
   if (!isRecord(value)) invalidTaskResult();
-  const { version, blockedByIds, ...fields } = value;
+  const { version, blockedByIds, queue, ...fields } = value;
   if (
     typeof fields.id !== "string" ||
     typeof version !== "number" ||
@@ -29,7 +29,7 @@ export function parseTaskProjection(value: unknown): TaskProjection {
     !Array.isArray(blockedByIds)
   )
     invalidTaskResult();
-  const task = validateTask(fields, fields.id);
+  const task = validateTask(queue === null ? fields : { ...fields, queue }, fields.id);
   if (
     !blockedByIds.every(
       (id, index) =>
@@ -45,6 +45,7 @@ export function parseTaskProjection(value: unknown): TaskProjection {
     due: task.due ?? null,
     effort: task.effort ?? DEFAULT_EFFORT,
     meta: task.meta ?? {},
+    queue: task.queue ?? null,
     version,
     blockedByIds,
   };

@@ -48,6 +48,7 @@ const projection = {
   due: null,
   effort: 3,
   meta: {},
+  queue: null,
   version: 1,
   blockedByIds: [],
 };
