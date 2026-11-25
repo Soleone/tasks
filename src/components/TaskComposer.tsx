@@ -3,57 +3,34 @@ import { randomUUID } from "../lib/randomUUID";
 import {
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   useState,
   type FormEvent,
   type KeyboardEvent,
   type ReactElement,
 } from "react";
-import { addDays, localToday } from "@/backend/dueDate";
+import { localToday } from "@/backend/dueDate";
 import type { TaskPriority } from "@/backend/taskModel";
 import type { ClassificationOption, TaskView } from "./taskView";
-import {
-  dueCompletion,
-  enterAction,
-  liftAll,
-  liftFinished,
-  liftToken,
-  shorthandText,
-  shorthandTitle,
-  suggestionRows,
-  tokenBeforeCaret,
-  type Classification,
-  type Lift,
-  type Marker,
-  type PartialToken,
-  type SuggestionRow,
-  type TitleDraft,
-} from "./composerShorthand";
-import { ClassificationPills, type PillLanding } from "./ClassificationPills";
-import { CategoryColumn } from "./TaskRow";
-import { DueDatePicker } from "./DueDatePicker";
-import {
-  createTask,
-  listTags,
-  updateTask,
-  type TaskMutationResult,
-} from "@/platform/backendClient";
+import { shorthandText, type Marker } from "./composerShorthand";
+import { createTask, updateTask, type TaskMutationResult } from "@/platform/backendClient";
 import { EditorError } from "@/platform/editorClient";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button, KeyHintButton, PlaceholderButton } from "@/components/variants/button";
+import { Button, PlaceholderButton } from "@/components/variants/button";
 import { ImagePlus } from "lucide-react";
 import { cn } from "cn";
 import { FieldError } from "@/components/ui/field";
-import { formatDueDate } from "@/backend/taskDates";
-import type { MoveId } from "@/learning/moves";
 import { practice } from "@/learning/progress";
 import { enterEditor, leaveEditor } from "@/learning/questProgress";
-import { InlineDescription, InlineTitleInput } from "@/components/variants/input";
+import { InlineDescription } from "@/components/variants/input";
 import { isMobileApp, modKey } from "@/platform/runtime";
 import { KeyboardBar } from "./KeyboardBar";
 import { AttachmentRow } from "./AttachmentRow";
 import { useDraftImages } from "./useDraftImages";
+import { ComposerKeyHints } from "./ComposerKeyHints";
+import { ComposerTitleLine } from "./ComposerTitleLine";
+import { focusAtEnd, keepInView } from "./fieldFocus";
+import { practiceMarker, savedMarkers, useTitleShorthand } from "./useTitleShorthand";
 
 export type ComposerState =
   | {
@@ -96,91 +73,6 @@ type TaskComposerProps = {
 
 type ComposerField = "title" | "when" | "description" | "images";
 
-const MARKER_MOVES: Record<Marker, MoveId> = {
-  "@": "shorthand.category",
-  "#": "shorthand.tags",
-  "!": "shorthand.due",
-};
-
-// A pill's name as a quest's success line says it, like "Due tomorrow".
-function practiceMarker(marker: Marker, slug: string): void {
-  practice(MARKER_MOVES[marker], "keys", marker === "!" ? formatDueDate(slug, localToday()) : slug);
-}
-
-// Markers still in the title when it saves, in the order the pills show them.
-function savedMarkers(before: Classification, after: Classification): [Marker, string][] {
-  return [
-    ...(after.category !== null && after.category !== before.category
-      ? [["@", after.category] as [Marker, string]]
-      : []),
-    ...after.tags
-      .filter((tag) => !before.tags.includes(tag))
-      .map((tag): [Marker, string] => ["#", tag]),
-    ...(after.due !== null && after.due !== before.due
-      ? [["!", after.due] as [Marker, string]]
-      : []),
-  ];
-}
-
-// Title and description both take focus with the caret after the text.
-function focusAtEnd(field: HTMLInputElement | HTMLTextAreaElement | null): void {
-  if (!field) return;
-  field.focus();
-  field.setSelectionRange(field.value.length, field.value.length);
-}
-
-/**
- * Scrolls `element` into view now and again once the on-screen keyboard has
- * resized the window, which happens after focus. Returns its cleanup.
- */
-function keepInView(element: HTMLElement): () => void {
-  const scroll = () => element.scrollIntoView({ block: "nearest" });
-  scroll();
-  window.addEventListener("resize", scroll);
-  const timeout = window.setTimeout(() => {
-    scroll();
-    window.removeEventListener("resize", scroll);
-  }, 400);
-  return () => {
-    window.clearTimeout(timeout);
-    window.removeEventListener("resize", scroll);
-  };
-}
-
-const TITLE_PLACEHOLDER = "What needs doing?";
-
-// Arrow keys move the highlighted due date by a day or a week.
-const dueSteps: Partial<Record<string, number>> = {
-  ArrowLeft: -1,
-  ArrowRight: 1,
-  ArrowUp: -7,
-  ArrowDown: 7,
-};
-
-// The highlighted row says what Enter does ("save task", so it reads as more than the name); the
-// others only mark a new name or a pill to remove.
-function SuggestionNote({
-  row,
-  action,
-}: {
-  row: SuggestionRow;
-  action: "select" | "save" | "remove" | null;
-}): ReactElement | null {
-  if (action)
-    return (
-      <span
-        className={
-          action === "remove" ? "text-xs text-destructive" : "text-xs text-muted-foreground"
-        }
-      >
-        ↵ {action === "save" ? "save task" : action}
-      </span>
-    );
-  if (row.kind === "remove") return <span className="text-xs text-destructive">remove</span>;
-  if (row.kind === "new") return <span className="text-xs text-muted-foreground">new</span>;
-  return null;
-}
-
 // Shared inline create/edit form. Fields and the priority section own direct
 // keyboard navigation; action buttons remain mouse-accessible backups and are
 // never Tab destinations.
@@ -201,7 +93,6 @@ export function TaskComposer({
 }: TaskComposerProps): ReactElement {
   const id = useId();
   const form = useRef<HTMLFormElement>(null);
-  const titleInput = useRef<HTMLInputElement>(null);
   const notesInput = useRef<HTMLTextAreaElement>(null);
   const imageRow = useRef<HTMLDivElement>(null);
   const saving = useRef(false);
@@ -210,34 +101,11 @@ export function TaskComposer({
   const whenPill = useRef<HTMLButtonElement>(null);
   const [when, setWhen] = useState<LoggedWhen>("now");
   const [loggedDay, setLoggedDay] = useState(() => localToday());
-  const [initialDraft] = useState(() =>
-    task
-      ? {
-          // The trailing space lets a marker follow straight away.
-          text: `${shorthandTitle(task.title)} `,
-          classification: {
-            category: task.category?.slug ?? null,
-            tags: task.tags.map((tag) => tag.slug),
-            due: task.due,
-          },
-        }
-      : liftAll(initialTitle, { category: null, tags: [], due: null }),
-  );
-  const [title, setTitle] = useState(initialDraft.text);
-  const [classification, setClassification] = useState<Classification>(initialDraft.classification);
-  // A new task's category comes from the category filter, so its pill flies in from there.
-  const [landing, setLanding] = useState<PillLanding | null>(() =>
-    !task && initialDraft.classification.category !== null
-      ? { marker: "@", slug: initialDraft.classification.category, from: "filter" }
-      : null,
-  );
-  // The caret to restore after a lift rewrites the title.
-  const pendingCaret = useRef<number | null>(null);
-  // The latest lift, so a Backspace right after it can put the token back.
-  const lastLift = useRef<Lift | null>(null);
   const [description, setDescription] = useState(task?.description ?? initialDescription);
   // Priority is set on the list after saving (`priority.set`), so the editor only carries it.
   const priority: TaskPriority = task?.priority ?? 2;
+  const shorthand = useTitleShorthand({ task, initialTitle, categories });
+  const { titleInput, classification } = shorthand;
   const images = useDraftImages(task?.attachments ?? [], initialImage);
   const [notesOpen, setNotesOpen] = useState(Boolean(task?.description ?? initialDescription));
   // Writing in the description counts once per editor (`edit.description`).
@@ -245,11 +113,6 @@ export function TaskComposer({
   const [pending, setPending] = useState(false);
   const [titleError, setTitleError] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tags, setTags] = useState<ClassificationOption[]>([]);
-  const [suggestion, setSuggestion] = useState<PartialToken | null>(null);
-  const [suggestionIndex, setSuggestionIndex] = useState(0);
-  // A date picked with the arrow keys, until the typed word changes.
-  const [dueCursor, setDueCursor] = useState<string | null>(null);
   const [activeField, setActiveField] = useState<ComposerField>("title");
   // Touch cancels and saves from the keyboard bar (`platform.editor-buttons`).
   const touch = isMobileApp();
@@ -274,7 +137,7 @@ export function TaskComposer({
       cancelAnimationFrame(frame);
       release?.();
     };
-  }, [task?.id]);
+  }, [task?.id, titleInput]);
 
   // Focus the notes after they commit, not in the click frame.
   useEffect(() => {
@@ -284,165 +147,6 @@ export function TaskComposer({
     focusAtEnd(input);
     return input ? keepInView(input) : undefined;
   }, [notesOpen]);
-
-  useLayoutEffect(() => {
-    if (pendingCaret.current === null) return;
-    titleInput.current?.setSelectionRange(pendingCaret.current, pendingCaret.current);
-    pendingCaret.current = null;
-  }, [title]);
-
-  useEffect(() => {
-    let cancelled = false;
-    listTags()
-      .then((tagResult) => {
-        if (!cancelled) setTags(tagResult.tags);
-      })
-      .catch(() => {
-        // Autocomplete is a convenience. The title remains editable if the
-        // shared backend is unavailable while the editor is open.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const suggestionItems: SuggestionRow[] = !suggestion
-    ? []
-    : suggestion.marker === "@"
-      ? suggestionRows(
-          suggestion.query,
-          categories,
-          classification.category === null ? [] : [classification.category],
-        )
-      : suggestion.marker === "#"
-        ? suggestionRows(suggestion.query, tags, classification.tags)
-        : [];
-  // A bare `!` starts on the date already set, so Enter removes it and the arrows shift it.
-  const dueChoice =
-    suggestion?.marker !== "!"
-      ? null
-      : (dueCursor ??
-        (suggestion.query === "" && classification.due !== null
-          ? classification.due
-          : dueCompletion(suggestion.query, localToday())));
-
-  function updateSuggestion(nextTitle: string, cursor: number): void {
-    setSuggestion(tokenBeforeCaret(nextTitle, cursor));
-    setSuggestionIndex(0);
-    setDueCursor(null);
-  }
-
-  function commitTitle(draft: TitleDraft): void {
-    setTitle(draft.text);
-    setClassification(draft.classification);
-    pendingCaret.current = draft.caret;
-    updateSuggestion(draft.text, draft.caret);
-  }
-
-  function commitLift(lift: Lift): void {
-    commitTitle(lift.draft);
-    lastLift.current = lift;
-    if (lift.change === "added" || lift.change === "replaced") {
-      setLanding({ marker: lift.token.marker, slug: lift.token.slug, at: lift.token.start });
-      practiceMarker(lift.token.marker, lift.token.slug);
-    }
-  }
-
-  // The chosen name replaces the partial one, as text.
-  function completeSuggestion(partial: PartialToken, slug: string): TitleDraft {
-    const replacement = `${partial.marker}${slug}`;
-    return {
-      text: `${title.slice(0, partial.start)}${replacement}${title.slice(partial.end)}`,
-      caret: partial.start + replacement.length,
-      classification,
-    };
-  }
-
-  function chooseSuggestion(partial: PartialToken, slug: string): void {
-    const completed = completeSuggestion(partial, slug);
-    const token = {
-      marker: partial.marker,
-      slug,
-      start: partial.start,
-      end: completed.caret,
-    };
-    commitLift(liftToken(completed, token, true));
-  }
-
-  // Backspace right after a lift: the token goes back into the title, without the space that lifted it.
-  function undoLift({ before, draft, token }: Lift): void {
-    practice("shorthand.unlift");
-    lastLift.current = null;
-    const typed = before.text.slice(token.start, token.end);
-    const at = token.start;
-    commitTitle({
-      text: `${draft.text.slice(0, at)}${typed}${draft.text.slice(at)}`,
-      caret: at + typed.length,
-      classification: before.classification,
-    });
-  }
-
-  function removePill(marker: Marker, slug: string): void {
-    lastLift.current = null;
-    setClassification((current) =>
-      marker === "@"
-        ? { ...current, category: null }
-        : marker === "!"
-          ? { ...current, due: null }
-          : { ...current, tags: current.tags.filter((tag) => tag !== slug) },
-    );
-  }
-
-  function handleSuggestionKeyDown(event: KeyboardEvent<HTMLInputElement>): boolean {
-    if (!suggestion || event.ctrlKey || event.metaKey || event.altKey) return false;
-    if (suggestion.marker === "!") return handleDueKeyDown(event, suggestion);
-    if (suggestionItems.length === 0) return false;
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      setSuggestionIndex(
-        (current) => (current + step + suggestionItems.length) % suggestionItems.length,
-      );
-      return true;
-    }
-    const row = suggestionItems[suggestionIndex];
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      if (enterAction(row, suggestion.query) === "save") event.currentTarget.form?.requestSubmit();
-      else chooseSuggestion(suggestion, row.slug);
-      return true;
-    }
-    if (event.key === "Tab" && !event.shiftKey) {
-      event.preventDefault();
-      practice("shorthand.tab");
-      // The first Tab completes the name as text; a second one chooses it.
-      if (row.slug === suggestion.query) chooseSuggestion(suggestion, row.slug);
-      else {
-        lastLift.current = null;
-        commitTitle(completeSuggestion(suggestion, row.slug));
-      }
-      return true;
-    }
-    return false;
-  }
-
-  // Enter and Tab always lift the date, so its pill shows before the task saves.
-  function handleDueKeyDown(
-    event: KeyboardEvent<HTMLInputElement>,
-    partial: PartialToken,
-  ): boolean {
-    if (event.shiftKey) return false;
-    const step = dueSteps[event.key];
-    if (step !== undefined) {
-      event.preventDefault();
-      setDueCursor(addDays(dueChoice ?? localToday(), step));
-      return true;
-    }
-    if (dueChoice === null || (event.key !== "Enter" && event.key !== "Tab")) return false;
-    event.preventDefault();
-    chooseSuggestion(partial, dueChoice);
-    return true;
-  }
 
   function showNotes(): void {
     focusNotesOnOpen.current = true;
@@ -506,7 +210,7 @@ export function TaskComposer({
       caret += direction * (adjacent?.length ?? 0);
     }
     field.setSelectionRange(caret, caret);
-    if (field === titleInput.current) updateSuggestion(field.value, caret);
+    if (field === titleInput.current) shorthand.updateSuggestion(field.value, caret);
   }
 
   // Types the marker at the caret as an input event, so shorthand sees it like a keypress. Only the
@@ -527,30 +231,7 @@ export function TaskComposer({
       if (event.key === "Enter") event.preventDefault();
       return;
     }
-    if (handleSuggestionKeyDown(event)) return;
-    const input = event.currentTarget;
-    const lifted = lastLift.current;
-    if (
-      event.key === "Backspace" &&
-      lifted?.draft.text === title &&
-      input.selectionStart === lifted.draft.caret &&
-      input.selectionEnd === input.selectionStart
-    ) {
-      event.preventDefault();
-      undoLift(lifted);
-      return;
-    }
-    if (event.key === "Escape" && suggestion) {
-      event.preventDefault();
-      event.stopPropagation();
-      lastLift.current = null;
-      commitTitle({
-        text: `${title.slice(0, suggestion.start)}${title.slice(suggestion.end)}`,
-        caret: suggestion.start,
-        classification,
-      });
-      return;
-    }
+    if (shorthand.handleTitleKeyDown(event)) return;
     if (event.key === "Escape") {
       if (pending) return;
       event.preventDefault();
@@ -579,11 +260,7 @@ export function TaskComposer({
     if (saving.current || images.picking) return;
     const via = saveVia.current;
     saveVia.current = "keys";
-    // A marker still in the title counts on save, but never removes a pill.
-    const lifted = liftAll(title, classification);
-    setTitle(lifted.text);
-    setClassification(lifted.classification);
-    setSuggestion(null);
+    const lifted = shorthand.liftRemaining();
     if (!lifted.text.trim()) {
       setTitleError(true);
       titleInput.current?.focus();
@@ -651,13 +328,6 @@ export function TaskComposer({
     }
   }
 
-  const pillProps = {
-    classification,
-    landing,
-    typing: suggestion,
-    titleInput,
-    onRemove: removePill,
-  };
   return (
     <form
       ref={form}
@@ -679,130 +349,17 @@ export function TaskComposer({
         touch && "scroll-mb-12",
       )}
     >
-      {/* The title line mirrors the row: the field, the due date, the empty arrow slot and the
-          category column. */}
-      <div className="flex min-w-0 basis-full items-start gap-2.5">
-        {/* Anchors the suggestions under the field; a flex column would lift them to its top. */}
-        <div className="relative min-w-0 flex-1">
-          {/* The field is as wide as its text, so the tags follow it as they do in the row. A click on
-              the rest of the line still lands in the field, at its end. */}
-          <div
-            className="flex min-w-0 flex-wrap items-center gap-1"
-            onMouseDown={(event) => {
-              if (event.target !== event.currentTarget) return;
-              event.preventDefault();
-              focusAtEnd(titleInput.current);
-            }}
-          >
-            <div className="inline-grid max-w-full grid-cols-1">
-              <span
-                aria-hidden="true"
-                className="invisible col-start-1 row-start-1 overflow-hidden text-sm leading-snug font-medium whitespace-pre"
-              >
-                {title || TITLE_PLACEHOLDER}
-              </span>
-              <InlineTitleInput
-                className="col-start-1 row-start-1"
-                // A field's natural width is 20 characters; the text sizer beside it sets the width.
-                size={1}
-                ref={titleInput}
-                aria-label="Title"
-                name="title"
-                autoComplete="off"
-                // Without a hint, a soft keyboard offers Next when the description follows.
-                enterKeyHint="go"
-                placeholder={TITLE_PLACEHOLDER}
-                value={title}
-                readOnly={pending}
-                required
-                aria-invalid={titleError || undefined}
-                aria-describedby={titleError ? `${id}-error` : undefined}
-                aria-expanded={
-                  suggestion !== null && (suggestion.marker === "!" || suggestionItems.length > 0)
-                }
-                aria-autocomplete="list"
-                onChange={(event) => {
-                  setTitleError(false);
-                  lastLift.current = null;
-                  const draft = {
-                    text: event.target.value,
-                    caret: event.target.selectionStart ?? event.target.value.length,
-                    classification,
-                  };
-                  // Pasted text adds what it names; only typing a pill again takes it off.
-                  const toggle = (event.nativeEvent as InputEvent).inputType !== "insertFromPaste";
-                  const lift = liftFinished(draft, toggle);
-                  if (lift) commitLift(lift);
-                  else {
-                    setTitle(draft.text);
-                    updateSuggestion(draft.text, draft.caret);
-                  }
-                }}
-                onFocus={() => setActiveField("title")}
-                onKeyDown={handleTitleKeyDown}
-                onPaste={pending ? undefined : images.paste}
-                onClick={(event) =>
-                  updateSuggestion(
-                    event.currentTarget.value,
-                    event.currentTarget.selectionStart ?? event.currentTarget.value.length,
-                  )
-                }
-              />
-            </div>
-            <ClassificationPills kind="tag" {...pillProps} />
-          </div>
-          {suggestion?.marker === "!" ? (
-            <DueDatePicker
-              key={dueChoice ?? "none"}
-              choice={dueChoice}
-              current={classification.due}
-              onPick={(due) => chooseSuggestion(suggestion, due)}
-            />
-          ) : null}
-          {suggestion && suggestionItems.length > 0 ? (
-            <div
-              role="listbox"
-              aria-label={`${suggestion.marker === "@" ? "Categories" : "Tags"} autocomplete`}
-              className="absolute top-full z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-            >
-              {suggestionItems.map((item, index) => (
-                <button
-                  key={item.slug}
-                  type="button"
-                  role="option"
-                  aria-selected={index === suggestionIndex}
-                  tabIndex={-1}
-                  className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm hover:bg-muted aria-selected:bg-muted"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => chooseSuggestion(suggestion, item.slug)}
-                >
-                  <span>
-                    {suggestion.marker}
-                    {item.label}
-                  </span>
-                  <SuggestionNote
-                    row={item}
-                    action={index === suggestionIndex ? enterAction(item, suggestion.query) : null}
-                  />
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-        <div className="ml-auto flex gap-2.5">
-          <ClassificationPills kind="due" {...pillProps} />
-          <span className="w-7 shrink-0" />
-          {categoryColumn ? (
-            <CategoryColumn grow>
-              <ClassificationPills kind="category" {...pillProps} />
-            </CategoryColumn>
-          ) : (
-            <div className="flex h-[1.375em] items-center">
-              <ClassificationPills kind="category" {...pillProps} />
-            </div>
-          )}
-        </div>
-      </div>
+      <ComposerTitleLine
+        shorthand={shorthand}
+        pending={pending}
+        invalid={titleError}
+        errorId={`${id}-error`}
+        categoryColumn={categoryColumn}
+        onEdit={() => setTitleError(false)}
+        onFocus={() => setActiveField("title")}
+        onKeyDown={handleTitleKeyDown}
+        onPaste={pending ? undefined : images.paste}
+      />
       {/* Line 2 beside the key hints, so a description starts right under the title. */}
       <div className="flex min-w-0 flex-1 flex-col gap-1 empty:hidden @max-md:basis-full">
         <div className="flex flex-wrap items-start gap-x-2 gap-y-1 empty:hidden">
@@ -883,40 +440,17 @@ export function TaskComposer({
         ) : null}
       </div>
       {!touch ? (
-        <div className="-my-0.5 ml-auto flex items-center justify-end gap-0.5 motion-safe:animate-in motion-safe:fade-in @max-md:order-last @max-md:basis-full">
-          <KeyHintButton
-            keys="Esc"
-            disabled={pending}
-            onClick={onCancel}
-            tabIndex={-1}
-            type="button"
-          >
-            Cancel
-          </KeyHintButton>
-          {!notesOpen ? (
-            <KeyHintButton
-              keys="Tab"
-              aria-label="Add description"
-              onClick={showNotes}
-              tabIndex={-1}
-              type="button"
-            >
-              Description
-            </KeyHintButton>
-          ) : null}
-          <KeyHintButton
-            keys={activeField === "description" ? `${modKey} ↵` : "↵"}
-            aria-label={task ? "Save changes" : "Add task"}
-            disabled={pending}
-            onClick={() => {
-              saveVia.current = "pointer";
-            }}
-            tabIndex={-1}
-            type="submit"
-          >
-            {pending ? "Saving…" : "Save"}
-          </KeyHintButton>
-        </div>
+        <ComposerKeyHints
+          pending={pending}
+          notesOpen={notesOpen}
+          saveKeys={activeField === "description" ? `${modKey} ↵` : "↵"}
+          saveName={task ? "Save changes" : "Add task"}
+          onCancel={onCancel}
+          onAddDescription={showNotes}
+          onPointerSave={() => {
+            saveVia.current = "pointer";
+          }}
+        />
       ) : null}
       {touch ? (
         <div className="basis-full pt-2">
