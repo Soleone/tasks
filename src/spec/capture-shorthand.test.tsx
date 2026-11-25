@@ -164,6 +164,20 @@ describe("shorthand", () => {
     await focusedTitleField();
   });
 
+  test("shorthand.hint-click: clicking a hint word types its marker after the title", async () => {
+    await workspace.command("task.create", { text: "Seed #bug" });
+    const { user } = await workspace.render();
+    await capture(user, "Fix login");
+    await user.click(within(editor()).getByRole("button", { name: "#tags" }));
+    expect(document.activeElement).toBe(titleField());
+    expect(titleField().value).toBe("Fix login #");
+    await suggestion(/bug/);
+    await user.keyboard("{Escape}");
+    await user.click(within(editor()).getByRole("button", { name: "!date" }));
+    expect(titleField().value).toBe("Fix login !");
+    await screen.findByRole("group", { name: "Due date picker" });
+  });
+
   test("shorthand.pill-exit: a removed pill fades out where it was, then goes", async () => {
     const { user } = await workspace.render();
     await capture(user, "Read #books #later ");

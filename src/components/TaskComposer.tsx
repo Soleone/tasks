@@ -102,6 +102,12 @@ const MARKER_MOVES: Record<Marker, MoveId> = {
   "!": "shorthand.due",
 };
 
+const MARKER_HINTS: [Marker, string][] = [
+  ["@", "category"],
+  ["#", "tags"],
+  ["!", "date"],
+];
+
 // A pill's name as a quest's success line says it, like "Due tomorrow".
 function practiceMarker(marker: Marker, slug: string): void {
   practice(MARKER_MOVES[marker], "keys", marker === "!" ? formatDueDate(slug, localToday()) : slug);
@@ -509,17 +515,25 @@ export function TaskComposer({
     if (field === titleInput.current) updateSuggestion(field.value, caret);
   }
 
-  // Types the marker at the caret as an input event, so shorthand sees it like a keypress. Only the
+  // Types the text at the caret as an input event, so shorthand sees it like a keypress. Only the
   // description keeps it as text; from the image row it goes to the title.
-  function insertMarker(marker: Marker): void {
+  function insertMarker(text: string): void {
     const field = activeField === "description" ? notesInput.current : titleInput.current;
     if (!field) return;
     field.focus();
     const end = field.selectionEnd ?? field.value.length;
-    field.setRangeText(marker, field.selectionStart ?? end, end, "end");
+    field.setRangeText(text, field.selectionStart ?? end, end, "end");
     field.dispatchEvent(
-      new InputEvent("input", { bubbles: true, inputType: "insertText", data: marker }),
+      new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }),
     );
+  }
+
+  // A hint word starts its marker at the title's end, after a space so it reads as shorthand.
+  function startMarker(marker: Marker): void {
+    const field = titleInput.current;
+    if (!field) return;
+    focusAtEnd(field);
+    insertMarker(/\S$/.test(field.value) ? ` ${marker}` : marker);
   }
 
   function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
@@ -827,8 +841,21 @@ export function TaskComposer({
           {classification.category === null &&
           classification.tags.length === 0 &&
           classification.due === null ? (
-            <span className="flex min-h-5 grow items-center text-xs text-muted-foreground">
-              @category #tags !date
+            <span className="flex min-h-5 grow items-center gap-1.5 text-xs text-muted-foreground">
+              {MARKER_HINTS.map(([marker, word]) => (
+                <button
+                  key={marker}
+                  type="button"
+                  tabIndex={-1}
+                  disabled={pending}
+                  className="rounded-sm hover:text-foreground hover:underline"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => startMarker(marker)}
+                >
+                  {marker}
+                  {word}
+                </button>
+              ))}
             </span>
           ) : null}
         </div>
