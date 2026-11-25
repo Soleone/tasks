@@ -85,6 +85,8 @@ type TaskComposerProps = {
   categories: ClassificationOption[];
   /** Holds the category in the rows' column; off when the rows leave the category out. */
   categoryColumn: boolean;
+  /** Keeps the rows' queue column clear, so the category lines up with theirs. */
+  queueColumn: boolean;
   onSaved: (result: TaskMutationResult) => void;
   onCreatePending: (draft: TaskCreateDraft) => void;
   onCreateFailed: () => void;
@@ -198,6 +200,7 @@ export function TaskComposer({
   parentId,
   categories,
   categoryColumn,
+  queueColumn,
   onSaved,
   onCreatePending,
   onCreateFailed,
@@ -815,6 +818,7 @@ export function TaskComposer({
               <ClassificationPills kind="category" {...pillProps} />
             </div>
           )}
+          {queueColumn ? <span className="w-7 shrink-0 sm:w-10" /> : null}
         </div>
       </div>
       {/* Line 2 beside the key hints, so a description starts right under the title. */}

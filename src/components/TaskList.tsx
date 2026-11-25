@@ -1972,6 +1972,7 @@ export function TaskList({
             composer={composer}
             categories={categories}
             categoryColumn={!categoryFilter}
+            queueColumn={queueColumn}
             onClose={onCloseComposer}
             onSaved={onComposerSaved}
             onCreatePending={onCreatePending}
@@ -2050,6 +2051,7 @@ export function TaskList({
                     composer={composer}
                     categories={categories}
                     categoryColumn={!categoryFilter}
+                    queueColumn={queueColumn}
                     onClose={onCloseComposer}
                     onSaved={onComposerSaved}
                     onCreatePending={onCreatePending}

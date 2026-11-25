@@ -242,6 +242,7 @@ export function InlineTaskComposer({
   composer,
   categories,
   categoryColumn,
+  queueColumn,
   onClose,
   onSaved,
   onCreatePending,
@@ -252,6 +253,7 @@ export function InlineTaskComposer({
   composer: ComposerState;
   categories: ClassificationOption[];
   categoryColumn: boolean;
+  queueColumn: boolean;
   onClose: () => void;
   onSaved: (result: TaskMutationResult) => void;
   onCreatePending: (draft: TaskCreateDraft) => void;
@@ -298,6 +300,7 @@ export function InlineTaskComposer({
           logged={logged}
           categories={categories}
           categoryColumn={categoryColumn}
+          queueColumn={queueColumn}
           onSaved={onSaved}
           onCreatePending={onCreatePending}
           onCreateFailed={onCreateFailed}
