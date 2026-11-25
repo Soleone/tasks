@@ -19,14 +19,9 @@ minimumReleaseAgeExclude:
   - "@tauri-apps/cli-win32-ia32-msvc@2.12.5"
   - "@tauri-apps/cli-win32-x64-msvc@2.12.5"
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@1.6.0
-  vite-plus: 1.6.0
+  vite: npm:@voidzero-dev/vite-plus-core@8.3.8001
+  vite-plus: 1.8.0
 overrides:
   vite@*: "catalog:"
-peerDependencyRules:
-  allowAny:
-    - vite
-  allowedVersions:
-    vite: "*"
 patchedDependencies:
   release-it@21.1.2: patches/release-it@21.1.2.patch
