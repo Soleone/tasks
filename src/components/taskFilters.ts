@@ -57,6 +57,15 @@ export const STATUS_PRESET_LABELS: Record<StatusPreset, string> = {
   all: "All",
 };
 
+/** "Done", or "Open, in progress, paused". */
+export function statusesLabel(statuses: TaskStatus[]): string {
+  const label = statuses
+    .map((status) => taskStatusMeta[status].label)
+    .join(", ")
+    .toLowerCase();
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 const ACTIVE_TASK_STATUS_SET = new Set<TaskStatus>(ACTIVE_TASK_STATUSES);
 
 export type TaskViewFilters = {

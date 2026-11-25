@@ -1,7 +1,7 @@
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ClassificationOption } from "@/components/taskView";
-import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/TaskListToolbar";
+import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/ToolbarFoldableGroup";
 import type { SortDirection, SortField, StatusPreset } from "@/components/taskFilters";
 import { readPreference } from "@/platform/preferences";
 
