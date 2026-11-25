@@ -28,8 +28,9 @@ export function loggedAt(when: LoggedWhen, day: string, now = new Date()): strin
 }
 
 /**
- * The editor's "when" pill for `L`: a task logged as already done. One pill shows the choice; Left
- * and Right, or a click, step through them. Pick a day adds a date field.
+ * The editor's "when" for `L`: a task logged as already done. Plain text shows the choice, since the
+ * checked circle already says done; Left and Right, or a click, step through them. Pick a day adds
+ * a date field.
  */
 export function LoggedWhenPill({
   when,
@@ -68,10 +69,7 @@ export function LoggedWhenPill({
           event.preventDefault();
           step(by);
         }}
-        className={cn(
-          FOCUS_RING,
-          "flex items-center gap-1 rounded-full bg-success-faint px-2 py-0.5 text-success",
-        )}
+        className={cn(FOCUS_RING, "flex items-center gap-1 rounded-md text-success")}
       >
         <span aria-hidden="true">‹</span>
         {CHOICES[index][1]}

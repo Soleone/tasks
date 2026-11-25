@@ -54,4 +54,4 @@ A goal is a number of tasks to finish a day or a week, per category, plus one fo
 
 | Rule | When | Then |
 | --- | --- | --- |
-| `capture.log` | `L` on the list | The New task editor opens for a task already done. `Tab` from the title goes to its "when" pill: Done now, Done this morning, Done yesterday, or Done on a day picked; `Left` / `Right` or a click change it and `Enter` saves. The task is created done at that time (`create.logged`): this morning is 9:00, a day is its noon, never later than now |
+| `capture.log` | `L` on the list | The New task editor opens for a task already done, its circle checking itself as it opens. `Tab` from the title goes to its "when", plain green text: Done now, Done this morning, Done yesterday, or Done on a day picked; `Left` / `Right` or a click change it and `Enter` saves. The task is created done at that time (`create.logged`): this morning is 9:00, a day is its noon, never later than now |

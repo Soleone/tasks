@@ -236,6 +236,7 @@ export function isEditorSaving(): boolean {
 
 // What a new task starts as, so capture shows the glyph it will save with.
 const NEW_TASK_STATUS = { status: "open", priority: 2, effort: 3 } as const;
+const LOGGED_TASK_STATUS = { ...NEW_TASK_STATUS, status: "done" } as const;
 
 export function InlineTaskComposer({
   composer,
@@ -261,6 +262,7 @@ export function InlineTaskComposer({
   const task = composer.mode === "edit" ? composer.task : undefined;
   const parentId = composer.mode === "create" ? composer.parentId : undefined;
   const indented = (task ? task.parentId : parentId) != null;
+  const logged = composer.mode === "create" && composer.logged === true;
 
   // Laid out like the row it replaces: the status glyph, then the title, so nothing shifts when
   // editing starts.
@@ -277,7 +279,14 @@ export function InlineTaskComposer({
     >
       <div className={cn("flex min-w-0 flex-1 items-start gap-2.5", indented && "pl-6")}>
         <div className="flex h-[1.375em] w-8 shrink-0 items-center justify-center">
-          <TaskStatusDisplay task={task ?? NEW_TASK_STATUS} />
+          {logged ? (
+            // Already done, so the circle checks itself as the editor opens.
+            <span className="task-completion-icon">
+              <TaskStatusDisplay task={LOGGED_TASK_STATUS} />
+            </span>
+          ) : (
+            <TaskStatusDisplay task={task ?? NEW_TASK_STATUS} />
+          )}
         </div>
         <TaskComposer
           key={task ? task.id : `create-${parentId ?? "root"}`}
@@ -286,7 +295,7 @@ export function InlineTaskComposer({
           initialTitle={composer.mode === "create" ? composer.initialTitle : undefined}
           initialDescription={composer.mode === "create" ? composer.initialDescription : undefined}
           initialImage={composer.mode === "create" ? composer.initialImage : undefined}
-          logged={composer.mode === "create" && composer.logged === true}
+          logged={logged}
           categories={categories}
           categoryColumn={categoryColumn}
           onSaved={onSaved}
