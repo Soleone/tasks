@@ -1,6 +1,3 @@
-"use client"
-
-// oxlint-disable-next-line no-restricted-imports -- the 3D stage needs the raw Backdrop and Popup, which components/ui/dialog styles
 import { Dialog } from "@base-ui/react/dialog"
 import {
   animate,
