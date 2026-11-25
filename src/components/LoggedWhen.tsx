@@ -50,7 +50,7 @@ export function LoggedWhenPill({
   const index = CHOICES.findIndex(([value]) => value === when);
   const step = (by: number) => onWhen(CHOICES[(index + by + CHOICES.length) % CHOICES.length][0]);
   return (
-    <span className="flex flex-wrap items-center gap-1.5 text-xs" onKeyDown={onKeyDown}>
+    <span className="flex min-h-5 flex-wrap items-center gap-1.5 text-xs" onKeyDown={onKeyDown}>
       <button
         ref={pillRef}
         type="button"
@@ -82,7 +82,7 @@ export function LoggedWhenPill({
           max={localToday()}
           value={day}
           onChange={(event) => onDay(event.target.value)}
-          className={cn(FOCUS_RING, "rounded-md border bg-transparent px-1.5 py-0.5")}
+          className={cn(FOCUS_RING, "h-5 rounded-md border bg-transparent px-1.5")}
         />
       ) : null}
     </span>
