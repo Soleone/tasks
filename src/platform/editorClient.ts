@@ -40,11 +40,12 @@ export type LiteralContent = Pick<
   TaskProjection,
   "title" | "description" | "priority" | "category" | "tags"
 >;
-/** A one-field change from the list: a new priority or effort, or a ticked checklist box. */
+/** A one-field change from the list: a new priority or effort, a ticked checklist box, or a place in the queue. */
 export type LevelChange =
   | Pick<TaskProjection, "priority">
   | Pick<TaskProjection, "effort">
-  | Pick<TaskProjection, "description">;
+  | Pick<TaskProjection, "description">
+  | { queue: TaskReorderPlacement | null };
 export type InlineDraft = Pick<TaskProjection, "description" | "priority" | "attachments"> & {
   text: string;
   /** Logs a new task as already done at this time (`create.logged`). */

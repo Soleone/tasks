@@ -15,15 +15,20 @@ export type WeekDay = { day: string; goals: GoalsToday | null };
 type HeaderCounts = {
   doneToday: number;
   dueNow: number;
+  /** The queued tasks' ids, front first. */
+  queue: string[];
   goals: GoalsToday | null;
   /** With goals set, this week day by day, for the done lens's week (`goals.report-open`). */
   week: WeekDay[] | null;
 };
 
-function lensQuery(lens: ListLens): TaskListQuery {
+function lensQuery(lens: ListLens, limit = 1): TaskListQuery {
   const { statuses, ...bounds } = lensFilter(lens);
-  return { status: statuses, ...bounds, limit: 1 };
+  return { status: statuses, ...bounds, limit };
 }
+
+/** As many as a page holds; a queue longer than that is no longer a queue. */
+const QUEUE_LIMIT = 500;
 
 /**
  * The counts in one request, since each request looks at every task file. With goals, this
@@ -34,10 +39,11 @@ async function countAll(settings: SharedSettings): Promise<HeaderCounts> {
   const now = new Date();
   const goalsSet = hasGoals(settings);
   const {
-    lists: [due, done],
+    lists: [due, queue, done],
   } = await listTasksTogether(
     [
       lensQuery({ kind: "due" }),
+      { ...lensQuery({ kind: "queue" }, QUEUE_LIMIT), sort: "queue" },
       goalsSet
         ? {
             status: ["done"],
@@ -48,7 +54,7 @@ async function countAll(settings: SharedSettings): Promise<HeaderCounts> {
     ],
     false,
   );
-  const goals = goalsSet ? goalsToday(settings, done.tasks, now)! : null;
+  const goals = goalsToday(settings, done.tasks, now);
   const today = dayOf(settings, now);
   const week = goalsSet
     ? thisWeek(settings, today).map((day) => ({
@@ -56,12 +62,18 @@ async function countAll(settings: SharedSettings): Promise<HeaderCounts> {
         goals: day > today ? null : goalsOn(settings, done.tasks, day),
       }))
     : null;
-  return { doneToday: goals ? goals.done : done.total, dueNow: due.total, goals, week };
+  return {
+    doneToday: goals ? goals.done : done.total,
+    dueNow: due.total,
+    queue: queue.tasks.map((task) => task.id),
+    goals,
+    week,
+  };
 }
 
 /**
- * How many tasks the done-today and due-now lenses show, and with goals set, how far each goal
- * got today. They count again whenever the loaded list or the goals change, which covers this
+ * How many tasks the done-today and due-now lenses show, what the queue holds, and with goals
+ * set, how far each goal got today. They count again whenever the loaded list or the goals change, which covers this
  * client's changes, undo, redo and writes from the CLI or another device.
  */
 export function useHeaderCounts(listTasksShown: readonly TaskView[]): HeaderCounts {
@@ -69,6 +81,7 @@ export function useHeaderCounts(listTasksShown: readonly TaskView[]): HeaderCoun
   const [counts, setCounts] = useState<HeaderCounts>({
     doneToday: 0,
     dueNow: 0,
+    queue: [],
     goals: null,
     week: null,
   });

@@ -16,6 +16,7 @@
 | `status.same-state` | A request for the current status changes nothing and still succeeds |
 | `status.invalid` | Any other move outside the table fails `INVALID_TRANSITION` |
 | `status.delete-is-cancel` | `task.delete` cancels. Only `task.purgeCanceled` and `task.clearDone` remove files |
+| `status.leaves-queue` | Completing or canceling a task takes it out of the queue. Reopening doesn't put it back |
 | `status.no-cascade` | Changing a task's status never changes its children or dependents |
 
 ## Relationships
@@ -42,6 +43,7 @@ Each operation uses one captured instant.
 | No-op | kept | kept |
 | Reorder or key maintenance | kept | kept |
 | Category or tag rename, and its undo and redo | kept | kept |
+| Only `meta` | kept | kept |
 | Clearing attachments from done tasks | kept | kept |
 | Undo of a status change | kept | the exact earlier value |
 | Undo of a content or link change | now | earlier value only if closure changed |

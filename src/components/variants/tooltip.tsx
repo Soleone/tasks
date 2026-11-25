@@ -3,6 +3,15 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 import { cn } from "cn";
 import type { ComponentProps } from "react";
 import { Tooltip as SharedTooltip } from "@/components/soleone/tooltip/tooltip";
+import { TooltipContent as StockTooltipContent } from "@/components/ui/tooltip";
+
+/**
+ * Stock shadcn's inverted tooltip on light themes. On dark themes that would be a bright slab over
+ * the page, so there it is a card one step above the page instead, with key caps set into it.
+ * The arrow is the popup's only `data-side` descendant.
+ */
+const surface =
+  "dark:bg-tooltip dark:text-foreground dark:shadow-lg dark:ring-1 dark:ring-foreground/10 dark:**:data-[side]:bg-tooltip dark:**:data-[side]:fill-tooltip dark:**:data-[slot=kbd]:bg-background dark:**:data-[slot=kbd]:text-foreground dark:**:data-[slot=kbd]:ring-1 dark:**:data-[slot=kbd]:ring-foreground/12";
 
 /**
  * Shared Tooltip that only names its control: it closes as soon as the pointer leaves the trigger
@@ -15,8 +24,15 @@ export function Tooltip({
   return <SharedTooltip disableHoverablePopup={disableHoverablePopup} {...props} />;
 }
 
+export function TooltipContent({
+  className,
+  ...props
+}: ComponentProps<typeof StockTooltipContent>) {
+  return <StockTooltipContent className={cn(surface, className)} {...props} />;
+}
+
 /**
- * Stock TooltipContent positioned against another element: feedback for a control that changed
+ * TooltipContent positioned against another element: feedback for a control that changed
  * without the pointer on it, such as the status filter after a keyboard shortcut.
  */
 export function AnchoredTooltipContent({
@@ -47,6 +63,7 @@ export function AnchoredTooltipContent({
           data-slot="tooltip-content"
           className={cn(
             "z-50 inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background has-data-[slot=kbd]:pr-1.5 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            surface,
             className,
           )}
           {...props}

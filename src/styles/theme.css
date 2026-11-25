@@ -1,0 +1,90 @@
+@custom-variant dark (&:is(.dark *));
+
+/* Task-specific roles extend the shared semantic theme tokens. */
+:root {
+  --classification-category: var(--om-green);
+}
+
+/* A category's color from Settings › Categories, by swatch name, so it follows the theme. */
+[data-swatch="red"] {
+  --swatch: var(--om-red);
+}
+[data-swatch="orange"] {
+  --swatch: var(--om-orange);
+}
+[data-swatch="yellow"] {
+  --swatch: var(--om-yellow);
+}
+[data-swatch="cyan"] {
+  --swatch: var(--om-cyan);
+}
+[data-swatch="blue"] {
+  --swatch: var(--om-blue);
+}
+[data-swatch="magenta"] {
+  --swatch: var(--om-magenta);
+}
+[data-swatch="brown"] {
+  --swatch: var(--om-brown);
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: "Geist Variable", sans-serif;
+  --text-2xs: 0.6875rem;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  /* On a light theme's inverted tooltip, the green leans toward the page so it stays legible. */
+  --color-success-inverse: color-mix(in oklab, var(--success) 50%, var(--background));
+  --color-warning: var(--warning);
+  --color-priority-faint: var(--priority-faint);
+  --color-success-faint: var(--success-faint);
+  /* A dark theme's tooltip: a step above the page, mixed from the page and ink rather than taken
+   * from a theme slot, since themes disagree on what their lighter background is. */
+  --color-tooltip: color-mix(in oklab, var(--background) 86%, var(--foreground));
+  --color-priority-soft: color-mix(in oklab, var(--foreground) 50%, var(--muted-foreground));
+  --color-classification-category: var(--classification-category);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Header mark hooks. The branding SVG paints background shapes with
+ * --app-icon-bg and foreground shapes with --app-icon-fg (as inline
+ * `style`, since var() is invalid in SVG presentation attributes), so
+ * replacement artwork using the same two hooks themes automatically. The
+ * tile is the theme accent and the mark is knocked out to the page canvas
+ * behind the icon.
+ */
+:root {
+  --app-icon-bg: var(--om-accent);
+  --app-icon-fg: var(--om-dark-background);
+}
+
+.app-icon > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

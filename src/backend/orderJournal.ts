@@ -81,7 +81,6 @@ export function parseOrderIntent(value: unknown, root: RootBinding): OrderIntent
           Buffer.from(encoded, "base64").toString("base64") !== encoded
         )
           conflict();
-        validateTask(parseCanonicalJson(Buffer.from(encoded, "base64")), file.taskId);
       }
       if (
         !intent.guards.some(

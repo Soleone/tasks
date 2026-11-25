@@ -29,7 +29,7 @@ function verifyTag(tag) {
     throw new Error(`Release tag ${tag} does not match package.json version ${version}.`);
 }
 
-function requireFile(file) {
+function requireNonEmpty(file) {
   if (statSync(file).size === 0) throw new Error(`Empty release asset: ${file}`);
 }
 
@@ -38,7 +38,7 @@ function stage(platform, source, output) {
   for (const file of files[platform]) {
     for (const suffix of file.target ? ["", ".sig"] : [""]) {
       const input = path.join(source, `${file.source}${suffix}`);
-      requireFile(input);
+      requireNonEmpty(input);
       copyFileSync(input, path.join(output, `${file.name}${suffix}`));
     }
   }
@@ -51,7 +51,7 @@ function manifest(directory, tag) {
     throw new Error("Set GITHUB_REPOSITORY to the release's owner/repository.");
   const platforms = {};
   for (const file of Object.values(files).flat()) {
-    requireFile(path.join(directory, file.name));
+    requireNonEmpty(path.join(directory, file.name));
     if (!file.target) continue;
     const signature = readFileSync(path.join(directory, `${file.name}.sig`), "utf8").trim();
     if (!signature) throw new Error(`Empty updater signature for ${file.name}.`);

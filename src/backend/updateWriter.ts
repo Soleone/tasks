@@ -56,7 +56,7 @@ export function executeUpdate(
       let update: { task: CanonicalTask; changed: boolean };
       switch (edit.kind) {
         case "content":
-          update = applyUpdate(task, edit.input, at);
+          update = applyUpdate(task, edit.input, at, snapshot.tasks);
           break;
         case "relationship":
           update = applyRelationship(task, edit.input, snapshot.tasks, at);

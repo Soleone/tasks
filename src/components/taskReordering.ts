@@ -25,9 +25,7 @@ export function selectedRowsForReorder(
   const scope = selectableSiblingRows(row, rows);
   const selected = scope.filter((candidate) => selectedIds.has(candidate.task.id));
   if (selected.length === 0) return selectedIds.size === 0 ? [row] : null;
-  if ([...selectedIds].some((id) => !selected.some((candidate) => candidate.task.id === id)))
-    return null;
-  return selected;
+  return selected.length === selectedIds.size ? selected : null;
 }
 
 export function placementForMove(
@@ -90,7 +88,8 @@ export function movedTaskRows(
     if (row.depth === 0) movingRoot = ids.has(row.task.id);
     (movingRoot || ids.has(row.task.id) ? moving : remaining).push(row);
   }
-  let index = remaining.findIndex((row) => row.task.id === placementTargetId(placement));
+  const targetId = "beforeId" in placement ? placement.beforeId : placement.afterId;
+  let index = remaining.findIndex((row) => row.task.id === targetId);
   if ("afterId" in placement) {
     const targetDepth = remaining[index].depth;
     index++;
@@ -106,8 +105,4 @@ export function selectionMembershipMatches(
   if (rows.length !== ids.length) return false;
   const rowIds = new Set(rows.map((row) => row.task.id));
   return rowIds.size === ids.length && ids.every((id) => rowIds.has(id));
-}
-
-export function placementTargetId(placement: TaskMovePlacement): string {
-  return "beforeId" in placement ? placement.beforeId : placement.afterId;
 }

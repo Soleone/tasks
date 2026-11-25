@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +30,16 @@ export function createCopyTestWorkspace(t: TestContext): CopyTestWorkspace {
     root,
     cache: path.join(directory, "local", "cache.db"),
   };
+}
+
+/** Exact task-directory bytes, including conflict copies, ordered by filename. */
+export function taskFileBytes(workspace: CopyTestWorkspace) {
+  return readdirSync(path.join(workspace.root, "tasks"))
+    .sort()
+    .map((file) => [
+      file,
+      readFileSync(path.join(workspace.root, "tasks", file)).toString("base64"),
+    ]);
 }
 
 const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
@@ -76,17 +86,13 @@ export function run(workspace: CopyTestWorkspace, request: object, loader?: stri
   );
 }
 
-export function recover(
-  workspace: CopyTestWorkspace,
-  operationId: string,
-  key = "resume",
-): Response {
+export function recover(workspace: CopyTestWorkspace, operationId: string): Response {
   const info = send(workspace, { command: "workspace.info" });
   if (!info.ok) return info;
   return send(workspace, {
     command: "workspace.recovery.resume",
     args: { operationId },
     writeContext: info.writeContext,
-    idempotencyKey: key,
+    idempotencyKey: "resume",
   });
 }

@@ -13,6 +13,7 @@ import {
   Flag,
   Link2,
   ListChevronsUpDown,
+  ListEnd,
   Pencil,
 } from "lucide-react";
 import { cn } from "cn";
@@ -49,6 +50,7 @@ export type TaskContextActions = {
   onSetStatus: (task: TaskView, status: SettableStatus) => void;
   onAddBlocker: (task: TaskView) => void;
   onMoveUnder: (task: TaskView) => void;
+  onQueue: (task: TaskView) => void;
   onCreateChild: (task: TaskView) => void;
   detailsShown: boolean;
   onToggleDetails: (task: TaskView) => void;
@@ -186,6 +188,12 @@ export function TaskContextMenu({
               <CornerDownRight aria-hidden="true" />
               Move under…
             </ContextMenuItem>
+            {task.status === "done" || task.status === "canceled" ? null : (
+              <ContextMenuItem onClick={() => actions.onQueue(task)}>
+                <ListEnd aria-hidden="true" />
+                {task.queue === null ? "Add to queue" : "Take out of queue"}
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               disabled={task.status === "canceled"}
               onClick={() => actions.onCreateChild(task)}

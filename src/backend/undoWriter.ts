@@ -73,7 +73,11 @@ export function commitUndo(database: DatabaseSync, intent: BatchIntent): Record<
   const authority = synchronizeAuthority(database, intent.root, snapshot);
   const affected = new Set(plan.affectedIds);
   // Read fixed originals, not the potentially already-applied subset observed during recovery.
-  const before = batchIntentPlanOriginals(intent).filter((task) => affected.has(task.id));
+  const before = intent.files.flatMap((file) => {
+    if (file.beforeBytes === null) return [];
+    const task = JSON.parse(Buffer.from(file.beforeBytes, "base64").toString()) as CanonicalTask;
+    return affected.has(task.id) ? [task] : [];
+  });
   const after = snapshot.tasks.filter((task) => affected.has(task.id));
   const source = intent.sources[0];
   const origin = source ? historyOrigin(source) : undefined;
@@ -109,21 +113,15 @@ export function commitUndo(database: DatabaseSync, intent: BatchIntent): Record<
     database
       .prepare("INSERT INTO v2_undo_claims VALUES (?, ?, ?)")
       .run(claim.operationId, claim.taskId, intent.operationId);
+  const recoveryLocation = undoRecoveryLocation(intent);
   const result = {
     ...undoResult(intent.request.command, { ...plan, tasks: snapshot.tasks }, authority),
     operationId: intent.operationId,
-    ...(undoRecoveryLocation(intent) ? { recoveryLocation: undoRecoveryLocation(intent) } : {}),
+    ...(recoveryLocation ? { recoveryLocation } : {}),
   };
   if (authority.writeContext === intent.request.writeContext)
     storeReceipt(database, intent.request, result);
   return result;
-}
-function batchIntentPlanOriginals(intent: BatchIntent): CanonicalTask[] {
-  return intent.files.flatMap((file) =>
-    file.beforeBytes === null
-      ? []
-      : [JSON.parse(Buffer.from(file.beforeBytes, "base64").toString()) as CanonicalTask],
-  );
 }
 
 export function executeUndo(request: Request, rootPath: string, cachePath: string) {

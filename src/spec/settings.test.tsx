@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
+import paletteSource from "@/components/HelpPalette.tsx?raw";
+import { BINDINGS } from "@/keymap";
 import * as backendClient from "@/platform/backendClient";
 import { AppWorkspace } from "@/testing/appWorkspace";
 import { expectListFocused, expectRows, row } from "@/testing/taskList";
@@ -328,6 +330,13 @@ test("help.palette: Ctrl+K opens a searchable palette of shortcuts", async () =>
   await user.keyboard("{Control>}k{/Control}");
   const dialog = await screen.findByRole("dialog", { name: "Shortcuts and syntax" });
   await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+});
+
+test("help.palette: every shortcut in the keymap has a palette entry", () => {
+  const missing = BINDINGS.map((binding) => binding.id).filter(
+    (id) => !paletteSource.includes(`"${id}"`),
+  );
+  expect(missing).toEqual([]);
 });
 
 test("home.dialog-return: closing the palette returns focus to the list", async () => {

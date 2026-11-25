@@ -31,8 +31,8 @@ import {
   ReadableTabsTrigger,
   StackedTabsContent,
 } from "@/components/variants/tabs";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { useFlashTooltip } from "@/components/useFlashTooltip";
 import { CopyButton, FLASH_FEEDBACK_DURATION_MS } from "@/components/CopyButton";
 import { showTaskToast } from "@/components/TaskToaster";
@@ -186,10 +186,7 @@ export function SettingsDialog({
             event.metaKey
           )
             return;
-          const target = event.target;
-          if (!(target instanceof HTMLElement)) return;
-          const stops = settingsTabStops(event.currentTarget);
-          if (stops.at(-1) !== target) return;
+          if (settingsTabStops(event.currentTarget).at(-1) !== event.target) return;
           const activeTab = event.currentTarget.querySelector<HTMLElement>(
             '[role="tab"][aria-selected="true"]',
           );
@@ -376,8 +373,13 @@ export function SettingsDialog({
               <GoalsSection open={open} />
             </StackedTabsContent>
 
-            <StackedTabsContent value="keys" tabIndex={-1}>
-              <div className="flex flex-col gap-4">
+            {/* Keys has no height of its own: it fills what the other tabs set, and its list scrolls. */}
+            <StackedTabsContent
+              value="keys"
+              tabIndex={-1}
+              className="h-0 min-h-full overflow-y-auto"
+            >
+              <div className="flex h-full flex-col gap-4">
                 {isDesktopApp() && <GlobalHotkeysSection />}
                 <KeysSection />
               </div>
@@ -404,7 +406,7 @@ export function SettingsDialog({
                         with history and undo, close Tasks and the CLI and copy the whole folder.
                       </p>
                     </div>
-                    {workspace ? (
+                    {workspace && (
                       <>
                         <code className="wrap-anywhere text-xs">
                           {workspace.editor.selection.profilePath}
@@ -427,7 +429,7 @@ export function SettingsDialog({
                           can damage them.
                         </p>
                       </>
-                    ) : null}
+                    )}
                     {runtimeKind() === "native" && (
                       <Button
                         variant="outline"

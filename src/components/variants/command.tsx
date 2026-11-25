@@ -23,7 +23,6 @@ export function Command({ className, ...props }: ComponentProps<typeof StockComm
 export function PaletteDialog({
   title,
   description,
-  className,
   wide = false,
   initialFocus,
   finalFocus,
@@ -32,7 +31,6 @@ export function PaletteDialog({
 }: Omit<ComponentProps<typeof Dialog>, "children"> & {
   title: string;
   description: string;
-  className?: string;
   /** For palettes whose rows carry a hint and keycaps, so each stays on one line. */
   wide?: boolean;
   initialFocus?: ContentProps["initialFocus"];
@@ -46,7 +44,7 @@ export function PaletteDialog({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <AnchoredDialogContent
-        className={cn("overflow-hidden p-0", wide && "sm:max-w-3xl", className)}
+        className={cn("overflow-hidden p-0", wide && "sm:max-w-3xl")}
         showCloseButton={false}
         initialFocus={initialFocus}
         finalFocus={finalFocus}

@@ -117,6 +117,23 @@ test("goals.tooltips: a weekly goal labels today and this week", async () => {
   expect(pill.closest("[title]")).toBeNull();
 });
 
+test("goals.report: the palette opens the report on the month or the year", async () => {
+  await workspace.writeSharedSettings({ otherGoal: { count: 1, per: "day" } });
+  await workspace.create("Task");
+  const { user } = await workspace.render({ home: true });
+  await expectRows(["Task"]);
+  await user.keyboard("{Control>}k{/Control}");
+  await user.click(await screen.findByRole("option", { name: /Goal report by year/ }));
+  await waitFor(() =>
+    expect(screen.getByRole("radio", { name: "Year" }).getAttribute("aria-checked")).toBe("true"),
+  );
+  await user.keyboard("g{Control>}k{/Control}");
+  await user.click(await screen.findByRole("option", { name: /Every day of the month/ }));
+  await waitFor(() =>
+    expect(screen.getByRole("radio", { name: "Month" }).getAttribute("aria-checked")).toBe("true"),
+  );
+});
+
 test("goals.lens: the done lens counts against the goals and narrows to one", async () => {
   await workspace.writeSharedSettings({
     goals: { life: { count: 2, per: "day" } },
@@ -211,4 +228,19 @@ test("capture.log: L logs a task already done, at the time its pill says", async
     expect(closed.getHours()).toBe(12);
     expect(Date.now() - closed.getTime()).toBeGreaterThan(12 * 60 * 60 * 1000);
   });
+});
+
+test("capture.log: Tab from the when goes to its date field once a day is picked", async () => {
+  await workspace.create("Open");
+  const { user } = await workspace.render();
+  await expectListFocused();
+  await user.keyboard("l");
+  await user.keyboard("Ran 5k");
+  await user.tab();
+  await user.keyboard("{ArrowLeft}");
+  expect(document.activeElement?.getAttribute("data-logged-when")).toBe("day");
+  await user.tab();
+  expect(document.activeElement?.getAttribute("aria-label")).toBe("Done on");
+  await user.tab({ shift: true });
+  expect(document.activeElement?.getAttribute("data-logged-when")).toBe("day");
 });

@@ -449,6 +449,60 @@ const QUEST_DEFINITIONS = [
     ],
   },
   {
+    id: "line-it-up",
+    title: "Line it up",
+    summary: "Queue what's next, put the urgent one first and work it off",
+    keyboard: [
+      {
+        move: "queue.add",
+        prompt: "Press `queue.add` to queue the active task",
+        success: "Queued",
+      },
+      {
+        move: "queue.add",
+        prompt: "Move to another task and press `queue.add` to queue it behind the first",
+        success: "Queued",
+      },
+      {
+        move: "queue.front",
+        prompt: "Move to a third task and press `queue.front` to put it first",
+        success: "First in the queue",
+      },
+      {
+        move: "queue.lens",
+        prompt: "Press `queue.lens` to work off the queue",
+        success: "The queue",
+      },
+      {
+        move: "reorder.step",
+        prompt: `Press \`${modKey}\`+\`↑\` or \`↓\` to move a task through the queue`,
+        success: "Moved",
+      },
+      {
+        move: "queue.lens",
+        prompt: "Press `queue.lens` again to go back to your previous view",
+        success: "Back where you were",
+      },
+    ],
+    touch: [
+      {
+        move: "queue.add",
+        prompt: "Long-press a task and tap Add to queue",
+        success: "Queued",
+      },
+      {
+        move: "queue.lens",
+        prompt: "Tap the queue count up top to work off the queue",
+        success: "The queue",
+      },
+      {
+        move: "queue.lens",
+        prompt: "Tap the queue count again to go back to your previous view",
+        success: "Back where you were",
+      },
+    ],
+  },
+  {
     id: "in-detail",
     title: "In detail",
     summary: "Descriptions, images and seeing them in the list",

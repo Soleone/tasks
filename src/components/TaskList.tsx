@@ -15,7 +15,7 @@ import {
 import { flushSync } from "react-dom";
 import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskEffort, TaskPriority, TaskStatus } from "@/backend/taskModel";
-import type { TaskTransitionCommand } from "@/backend/protocol";
+import type { TaskReorderPlacement, TaskTransitionCommand } from "@/backend/protocol";
 import type { ClassificationOption, TaskView } from "./taskView";
 import {
   EXACT_STATUS_META,
@@ -30,7 +30,7 @@ import {
 } from "@/components/taskFilters";
 import { lensPhrase, type GoalLens, type ListLens } from "./listLens";
 import type { GoalsToday } from "@/goals";
-import { CategoryFact } from "./TaskRow";
+import { CategoryFact, type QueueArrival } from "./TaskRow";
 import {
   InlineTaskComposer,
   isEditorSaving,
@@ -133,6 +133,7 @@ export type TaskListHandle = {
   finishIdentityPreservingRefresh: () => void;
   clearActiveTaskSelection: () => void;
   getActiveTask: () => TaskView | undefined;
+  queueTask: (task: TaskView, front: boolean) => Promise<void>;
   waitForWrites: () => Promise<void>;
 };
 
@@ -143,6 +144,8 @@ type TaskListProps = {
   newTaskId?: string | null;
   /** The task this client just saved from the editor, while its row plays `edit.saved` or `capture.saved`. */
   savedTask?: SavedTask | null;
+  /** A new task this client just saved outside the view, while it plays `capture.saved-elsewhere`. */
+  departingTask?: TaskView | null;
   exitingTaskIds: ReadonlySet<string>;
   contextTasks: TaskView[];
   contextOrder: ReadonlyMap<string, number>;
@@ -154,7 +157,7 @@ type TaskListProps = {
   onToggleLens: (kind: ListLens["kind"]) => void;
   onWidenDoneLens: (backward?: boolean) => void;
   /** Opens the goal report, which takes the list's place while `hidden`. */
-  onOpenGoalReport: (range: ReportRange, from?: "week") => void;
+  onOpenGoalReport: (range: ReportRange) => void;
   hidden: boolean;
   goals: GoalsToday | null;
   /** This week day by day, while the done lens shows today (`goals.report-open`). */
@@ -162,6 +165,8 @@ type TaskListProps = {
   onGoalLens: (goal: GoalLens | undefined) => void;
   /** Who last changed each task the agents lens shows, by task id. */
   agentNotes: ReadonlyMap<string, string>;
+  /** Each queued task's place in the queue, 1 for the front, by task id. */
+  queuePositions: ReadonlyMap<string, number>;
   statusPreset: StatusPreset;
   exactStatus: TaskStatus | null;
   onToggleStatusPreset: () => void;
@@ -214,24 +219,24 @@ type TaskListProps = {
   onTaskUpdated: (task: TaskView) => void;
   onTasksUpdated: (tasks: TaskView[]) => void;
   /** `wasActiveTaskId` is the active task when the change began, before an optimistic row moved. */
-  onOperation?: (
+  onOperation: (
     operationId: string,
     previous: TaskView[],
     current: TaskView[],
     wasActiveTaskId?: string | null,
   ) => void;
-  onStatusChanged?: (previous: TaskView, current: TaskView, wasActive: boolean) => void;
-  onStatusBatchChanged?: (
+  onStatusChanged: (previous: TaskView, current: TaskView, wasActive: boolean) => void;
+  onStatusBatchChanged: (
     previous: TaskView[],
     current: TaskView[],
     wasActiveTaskId: string | null,
   ) => void;
-  canUndoStatus?: boolean;
-  onUndoStatus?: () => void;
-  canRedo?: boolean;
-  onRedo?: () => void;
+  canUndoStatus: boolean;
+  onUndoStatus: () => void;
+  canRedo: boolean;
+  onRedo: () => void;
   onCanceled: (task: TaskView) => void;
-  onCanceledMany?: (previous: TaskView[], current: TaskView[]) => void;
+  onCanceledMany: (previous: TaskView[], current: TaskView[]) => void;
   onAddBlocker: (task: TaskView) => void;
   onMoveUnder: (task: TaskView) => void;
 };
@@ -263,6 +268,7 @@ export function TaskList({
   categories,
   newTaskId,
   savedTask,
+  departingTask,
   exitingTaskIds,
   contextTasks,
   contextOrder,
@@ -277,6 +283,7 @@ export function TaskList({
   week,
   onGoalLens,
   agentNotes,
+  queuePositions,
   statusPreset,
   exactStatus,
   onToggleStatusPreset,
@@ -363,18 +370,8 @@ export function TaskList({
   // Replies land after later renders; these reach the handlers of the latest one.
   const showTaskUpdate = useStableHandler(onTaskUpdated);
   const announce = useStableHandler(onAnnounce);
-  const recordOperation = useStableHandler(
-    (
-      operationId: string,
-      previous: TaskView[],
-      current: TaskView[],
-      wasActiveTaskId?: string | null,
-    ) => onOperation?.(operationId, previous, current, wasActiveTaskId),
-  );
-  const statusChanged = useStableHandler(
-    (previous: TaskView, current: TaskView, wasActive: boolean) =>
-      onStatusChanged?.(previous, current, wasActive),
-  );
+  const recordOperation = useStableHandler(onOperation);
+  const statusChanged = useStableHandler(onStatusChanged);
   const toolbarModeRef = useRef<ToolbarMode | null>(null);
   const [listFocused, setListFocused] = useState(false);
   const composerOpenRef = useRef(composer !== null);
@@ -388,6 +385,11 @@ export function TaskList({
   const [glyphFeedback, setGlyphFeedback] = useState<{ taskId: string; version: number } | null>(
     null,
   );
+  // How the task this client last queued came in, so its number arrives from that end.
+  const [queueArrival, setQueueArrival] = useState<{
+    taskId: string;
+    arrival: QueueArrival;
+  } | null>(null);
   const { sheenSteps, playSheen } = useCompletionSheen();
   const [filterFeedbackVersion, setFilterFeedbackVersion] = useState(0);
   const filterFeedback = useFlashTooltip(filterFeedbackVersion, TOGGLE_FEEDBACK_DURATION_MS);
@@ -461,9 +463,14 @@ export function TaskList({
       if (unopened.length > 0) setExpandedIds((previous) => new Set([...previous, ...unopened]));
     }
   }
+  const flat = lens?.kind === "queue";
   const savedRows = useMemo(
-    () => visibleTaskRows(tasks, expandedIds, shownContextTasks, contextOrder),
-    [tasks, expandedIds, shownContextTasks, contextOrder],
+    () =>
+      // The queue is one line, so a queued subtask stands on its own (`queue.lens`).
+      flat
+        ? tasks.map((task) => ({ task, depth: 0 as const, hasChildren: false, contextOnly: false }))
+        : visibleTaskRows(tasks, expandedIds, shownContextTasks, contextOrder),
+    [flat, tasks, expandedIds, shownContextTasks, contextOrder],
   );
   // A filter change resets the selection and hides any previous reorder preview.
   const filterIdentity = [
@@ -484,6 +491,7 @@ export function TaskList({
         : orderedTaskRows(savedRows, pendingRowOrder.ranks),
     [savedRows, pendingRowOrder, sortField, filterIdentity],
   );
+  const queueColumn = visibleRows.some((row) => queuePositions.has(row.task.id));
   const savedRowsRef = useRef(savedRows);
   useLayoutEffect(() => {
     savedRowsRef.current = savedRows;
@@ -554,6 +562,11 @@ export function TaskList({
     }
   });
 
+  // The palette queues through the handle, which outlives this render's `queueTask`.
+  const queueTaskRef = useRef(queueTask);
+  useEffect(() => {
+    queueTaskRef.current = queueTask;
+  });
   useImperativeHandle(
     ref,
     () => ({
@@ -576,6 +589,7 @@ export function TaskList({
           ]);
         }
       },
+      queueTask: (task, front) => queueTaskRef.current(task, front),
     }),
     [selectionHandle],
   );
@@ -1000,6 +1014,11 @@ export function TaskList({
   async function reorderSelection(direction: TaskMoveDirection): Promise<void> {
     const rows = visibleRowsRef.current;
     const active = rows.find((row) => row.task.id === selectionHandle.getActiveTask()?.id);
+    // In the queue, manual order is the queue's own (`queue.move`).
+    if (lens?.kind === "queue" && sortField === "manual") {
+      if (active) await moveInQueue(active.task, direction);
+      return;
+    }
     const reason = reorderDisabledReason(active);
     if (reason) {
       onAnnounce(reason);
@@ -1291,7 +1310,7 @@ export function TaskList({
       if (result.changed) {
         const previous = selected.filter((task) => selectedIds.includes(task.id));
         const current = result.tasks.filter((task) => selectedIds.includes(task.id));
-        if (result.operationId) onOperation?.(result.operationId, previous, current);
+        if (result.operationId) onOperation(result.operationId, previous, current);
         // The wave runs down the list, so it follows the visible order of the selection.
         const doneNow = new Set(
           current.filter((task) => task.status === "done").map((task) => task.id),
@@ -1301,7 +1320,7 @@ export function TaskList({
             .filter((task) => task.status !== "done" && doneNow.has(task.id))
             .map((task) => task.id),
         );
-        onStatusBatchChanged?.(previous, current, activeTask?.id ?? null);
+        onStatusBatchChanged(previous, current, activeTask?.id ?? null);
       }
       onAnnounce(
         `${result.tasks.length} task${result.tasks.length === 1 ? "" : "s"} ${actionLabel}`,
@@ -1392,19 +1411,74 @@ export function TaskList({
 
   function setTaskPriority(task: TaskView, priority: TaskPriority): Promise<void> {
     if (task.priority === priority) return Promise.resolve();
-    return setTaskLevel(task, { priority }, `priority ${priorityMeta(priority).label}`);
+    return setTaskLevel(task, { priority }, `priority ${priorityMeta(priority).label}`, {
+      ...task,
+      priority,
+    });
   }
 
   function setTaskEffort(task: TaskView, effort: TaskEffort): Promise<void> {
     if (task.effort === effort) return Promise.resolve();
-    return setTaskLevel(task, { effort }, `effort ${EFFORT_LABELS[effort]}`);
+    return setTaskLevel(task, { effort }, `effort ${EFFORT_LABELS[effort]}`, { ...task, effort });
   }
 
-  function setTaskLevel(task: TaskView, change: LevelChange, label: string): Promise<void> {
+  /**
+   * `Q` puts the task at the back of the queue, or takes it out when it is already queued;
+   * `Shift+Q` puts it at the front, wherever it stood.
+   */
+  function queueTask(task: TaskView, front: boolean): Promise<void> {
+    if (task.status === "done" || task.status === "canceled") {
+      announce("Done and canceled tasks can't be queued.");
+      return Promise.resolve();
+    }
+    if (!front && task.queue !== null)
+      return setTaskLevel(task, { queue: null }, "out of the queue", task);
+    setQueueArrival({ taskId: task.id, arrival: front ? "front" : "back" });
+    return setTaskLevel(
+      task,
+      { queue: front ? { first: true } : { last: true } },
+      front ? "first in the queue" : "queued",
+      task,
+    );
+  }
+
+  /** Ctrl/⌘ and the arrows in the queue lens move the active task through the queue. */
+  function moveInQueue(task: TaskView, direction: TaskMoveDirection): Promise<void> {
+    if (task.queue === null) return Promise.resolve();
+    const queued = visibleRowsRef.current
+      .filter((row) => row.task.queue !== null)
+      .map((row) => row.task);
+    const index = queued.findIndex((entry) => entry.id === task.id);
+    const placement: TaskReorderPlacement | null =
+      direction === "start"
+        ? index > 0
+          ? { first: true }
+          : null
+        : direction === "end"
+          ? index < queued.length - 1
+            ? { last: true }
+            : null
+          : direction === "up"
+            ? index > 0
+              ? { beforeId: queued[index - 1].id }
+              : null
+            : index < queued.length - 1
+              ? { afterId: queued[index + 1].id }
+              : null;
+    if (placement === null) return Promise.resolve();
+    return setTaskLevel(task, { queue: placement }, "moved in the queue", task);
+  }
+
+  function setTaskLevel(
+    task: TaskView,
+    change: LevelChange,
+    label: string,
+    shown: TaskView,
+  ): Promise<void> {
     if (mutationPending.current.has(task.id)) return Promise.resolve();
     return writeOptimistically(
       task,
-      { ...task, ...change },
+      shown,
       async (confirmed) => {
         const previousReceipt = levelReceipts.current.get(task.id);
         const receipt =
@@ -1420,8 +1494,8 @@ export function TaskList({
       },
       (previous, result) => {
         if (result.operationId) recordOperation(result.operationId, [previous], [result.task]);
-        // The status glyph shows priority and effort, not the description.
-        if (result.changed !== false && !("description" in change))
+        // The status glyph shows priority and effort, not the description or the queue.
+        if (result.changed !== false && ("priority" in change || "effort" in change))
           setGlyphFeedback({ taskId: task.id, version: result.task.version });
         announce(`${task.title}: ${label}`);
       },
@@ -1441,8 +1515,8 @@ export function TaskList({
       const result = await deleteTask(task.id, task.version, { idempotencyKey: receipt.key });
       deleteReceipts.current.delete(task.id);
       if (result.changed !== false) {
-        if (result.operationId) onOperation?.(result.operationId, [task], [result.task]);
-        onStatusChanged?.(task, result.task, activeTask?.id === task.id);
+        if (result.operationId) onOperation(result.operationId, [task], [result.task]);
+        onStatusChanged(task, result.task, activeTask?.id === task.id);
       }
       onCanceled(result.task);
     } catch (caught) {
@@ -1478,10 +1552,9 @@ export function TaskList({
     try {
       const result = await transitionTasks(items, { idempotencyKey: receipt.key });
       batchTransitionReceiptRef.current = null;
-      if (result.operationId) onOperation?.(result.operationId, selected, result.tasks);
-      onStatusBatchChanged?.(selected, result.tasks, activeTask?.id ?? null);
-      if (onCanceledMany) onCanceledMany(selected, result.tasks);
-      else result.tasks.forEach((task) => onCanceled(task));
+      if (result.operationId) onOperation(result.operationId, selected, result.tasks);
+      onStatusBatchChanged(selected, result.tasks, activeTask?.id ?? null);
+      onCanceledMany(selected, result.tasks);
       onAnnounce(`Canceled ${result.tasks.length} tasks`);
     } catch (caught) {
       if (caught instanceof EditorError && caught.code === "STALE_TASK_VERSION") {
@@ -1540,6 +1613,10 @@ export function TaskList({
         returnToList();
         onMoveUnder(task);
       },
+      onQueue: (task) => {
+        practice("queue.add", "pointer");
+        void queueTask(task, false);
+      },
       onCreateChild: (task) => {
         practice("capture.child", "pointer");
         returnToList();
@@ -1591,7 +1668,7 @@ export function TaskList({
   const handleOptionCopyImage = useStableHandler(copyNewestImage);
   const handleOptionEditDescription = useStableHandler(
     (task: TaskView, description: string): void =>
-      void setTaskLevel(task, { description }, "checklist updated"),
+      void setTaskLevel(task, { description }, "checklist updated", { ...task, description }),
   );
   const handleOptionContextActions = useStableHandler(contextActions);
 
@@ -1600,10 +1677,10 @@ export function TaskList({
       hasActiveFilters,
       activeTask,
       visibleRowCount: visibleRows.length,
-      canUndoStatus: Boolean(canUndoStatus),
-      undoStatus: () => onUndoStatus?.(),
-      canRedo: Boolean(canRedo),
-      redo: () => onRedo?.(),
+      canUndoStatus,
+      undoStatus: onUndoStatus,
+      canRedo,
+      redo: onRedo,
       deleteSelectedTasks,
       returnToList,
       clearAllFilters: onClearAllFilters,
@@ -1627,6 +1704,7 @@ export function TaskList({
       openCategoryPicker,
       openTagPicker,
       addBlocker: onAddBlocker,
+      queueTask,
       toggleLens: onToggleLens,
       widenDoneLens: onWidenDoneLens,
       openGoalReport: onOpenGoalReport,
@@ -1782,13 +1860,13 @@ export function TaskList({
         taskActions={{
           activeTask,
           disabled: composer !== null,
-          canUndo: Boolean(canUndoStatus),
+          canUndo: canUndoStatus,
           onUndo: () => {
             practice("undo.latest", "pointer");
-            onUndoStatus?.();
+            onUndoStatus();
           },
-          canRedo: Boolean(canRedo),
-          onRedo: () => onRedo?.(),
+          canRedo,
+          onRedo,
           onAddBlocker: (task) => {
             practice("pick.blocker", "pointer");
             returnToList();
@@ -1863,7 +1941,7 @@ export function TaskList({
         }}
         goals={goals}
         week={week}
-        onOpenGoalReport={() => onOpenGoalReport("month", "week")}
+        onOpenGoalReport={() => onOpenGoalReport("month")}
         onGoalLens={onGoalLens}
         clearStatusFilter={clearStatusFilter}
         clearCategoryFilter={clearCategoryFilter}
@@ -1894,6 +1972,7 @@ export function TaskList({
             composer={composer}
             categories={categories}
             categoryColumn={!categoryFilter}
+            queueColumn={queueColumn}
             onClose={onCloseComposer}
             onSaved={onComposerSaved}
             onCreatePending={onCreatePending}
@@ -1946,6 +2025,15 @@ export function TaskList({
               hiddenCategorySlug={categoryFilter?.slug ?? null}
             />
           ) : null}
+          {departingTask ? (
+            <OptimisticTaskOption
+              key={departingTask.id}
+              task={departingTask}
+              showDetails={showDetails}
+              hiddenCategorySlug={categoryFilter?.slug ?? null}
+              departing
+            />
+          ) : null}
           {rootRowRuns(visibleRows).map((run) => (
             // A lone root stays a plain row to assistive tech; a family is a labeled group.
             // Off-screen families skip layout and paint, so paging in more rows stays smooth.
@@ -1963,6 +2051,7 @@ export function TaskList({
                     composer={composer}
                     categories={categories}
                     categoryColumn={!categoryFilter}
+                    queueColumn={queueColumn}
                     onClose={onCloseComposer}
                     onSaved={onComposerSaved}
                     onCreatePending={onCreatePending}
@@ -1988,6 +2077,11 @@ export function TaskList({
                     exitingTaskIds={exitingTaskIds}
                     showDetails={detailsShownFor(row.task.id)}
                     note={lens?.kind === "agents" ? agentNotes.get(row.task.id) : undefined}
+                    queuePosition={queuePositions.get(row.task.id)}
+                    queueColumn={queueColumn}
+                    queueArrival={
+                      queueArrival?.taskId === row.task.id ? queueArrival.arrival : undefined
+                    }
                     showCompletedAt={sortField === "closed"}
                     completedClockOnly={
                       lens?.kind === "done" &&

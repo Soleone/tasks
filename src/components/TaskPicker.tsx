@@ -13,28 +13,24 @@ import { getTask, listTasks } from "@/platform/backendClient";
 import { literalWordScore } from "@/components/commandFilter";
 import { Command, PaletteDialog } from "@/components/variants/command";
 import { useLoadOnOpen } from "./useLoadOnOpen";
+import { TASK_LIST_MAX_LIMIT } from "@/backend/protocol";
 
 export type TaskPickerMode = "blocker" | "move";
 
 const NON_CANCELED_TASK_STATUSES = ["open", "in_progress", "paused", "done"] as const;
 
-function collectDescendantIds(candidates: TaskView[], rootId: string): Set<string> {
-  const childrenByParent = new Map<string, string[]>();
-  for (const task of candidates) {
-    if (!task.parentId) continue;
-    const siblings = childrenByParent.get(task.parentId) ?? [];
-    siblings.push(task.id);
-    childrenByParent.set(task.parentId, siblings);
+// The search runs over what is loaded, so every page has to be here, not just the first.
+async function listAllNonCanceledTasks(): Promise<TaskView[]> {
+  const tasks: TaskView[] = [];
+  for (;;) {
+    const page = await listTasks({
+      status: NON_CANCELED_TASK_STATUSES,
+      offset: tasks.length,
+      limit: TASK_LIST_MAX_LIMIT,
+    });
+    tasks.push(...page.tasks);
+    if (page.tasks.length === 0 || tasks.length >= page.total) return tasks;
   }
-  const descendants = new Set<string>();
-  const queue = [...(childrenByParent.get(rootId) ?? [])];
-  while (queue.length > 0) {
-    const current = queue.pop() as string;
-    if (current === rootId || descendants.has(current)) continue;
-    descendants.add(current);
-    queue.push(...(childrenByParent.get(current) ?? []));
-  }
-  return descendants;
 }
 
 function pickerCandidates(all: TaskView[], subject: TaskView, mode: TaskPickerMode): TaskView[] {
@@ -45,13 +41,8 @@ function pickerCandidates(all: TaskView[], subject: TaskView, mode: TaskPickerMo
       (task) => task.status !== "done" && task.id !== subject.id && !blocked.has(task.id),
     );
   }
-  const descendants = collectDescendantIds(all, subject.id);
   return selectable.filter(
-    (task) =>
-      task.id !== subject.id &&
-      !descendants.has(task.id) &&
-      task.id !== subject.parentId &&
-      task.parentId === null,
+    (task) => task.id !== subject.id && task.id !== subject.parentId && task.parentId === null,
   );
 }
 
@@ -82,11 +73,11 @@ export function TaskPicker({
     const relationshipIds = [
       ...new Set([...(subject.parentId ? [subject.parentId] : []), ...subject.dependencyIds]),
     ];
-    const [result, relationships] = await Promise.all([
-      listTasks({ status: NON_CANCELED_TASK_STATUSES }),
+    const [tasks, relationships] = await Promise.all([
+      listAllNonCanceledTasks(),
       Promise.all(relationshipIds.map((id) => getTask(id))),
     ]);
-    const byId = new Map(result.tasks.map((task) => [task.id, task]));
+    const byId = new Map(tasks.map((task) => [task.id, task]));
     for (const relationship of relationships) byId.set(relationship.task.id, relationship.task);
     return [...byId.values()];
   }, [subject]);

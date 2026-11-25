@@ -369,6 +369,7 @@ test("quest.complete: Make it yours, the last quest, is the finale and leaves th
     "change-of-plans",
     "find-your-way",
     "shape-your-list",
+    "line-it-up",
     "in-detail",
     "fast-hands",
     "goals",
@@ -570,6 +571,15 @@ test("quest.one-at-a-time: starting a quest puts the one under way aside, quietl
   reopened.getByText("Paused at step 2 of 8");
 });
 
+test("learn.panel: the palette opens the quest log", async () => {
+  await workspace.create("Task");
+  const { user } = await workspace.render();
+  await expectListFocused();
+  await user.keyboard("{Control>}k{/Control}");
+  await user.click(await screen.findByRole("option", { name: /Quests and learned keys/ }));
+  await screen.findByRole("complementary", { name: "Learn" });
+});
+
 test("learn.panel: ? opens the quest log without taking focus, and ? closes it", async () => {
   await workspace.create("Task");
   const { user } = await workspace.render();
@@ -584,6 +594,7 @@ test("learn.panel: ? opens the quest log without taking focus, and ? closes it",
       "Change of plans",
       "Find your way",
       "Shape your list",
+      "Line it up",
       "In detail",
       "Fast hands",
       "Goals",
@@ -591,7 +602,7 @@ test("learn.panel: ? opens the quest log without taking focus, and ? closes it",
       "Make it yours",
     ],
   );
-  expect(panel.getAllByText("New")).toHaveLength(12);
+  expect(panel.getAllByText("New")).toHaveLength(13);
   expect(
     within(panel.getByRole("region", { name: "Task basics" }))
       .getAllByRole("listitem")

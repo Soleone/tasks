@@ -68,7 +68,7 @@ export function parseShorthand(input: string, today = localToday()): ParsedShort
     const start = match.index + match[1].length;
     if (protectedUnits.slice(start, start + match[2].length + match[3].length).some(Boolean))
       continue;
-    const slug = slugInput(match[3]);
+    const slug = match[3].toLowerCase();
     (match[2] === "@" ? categories : tags).add(slug);
     ranges.push({ start, end: start + 1 + match[3].length });
   }
@@ -87,8 +87,15 @@ export function parseShorthand(input: string, today = localToday()): ParsedShort
     text = `${text.slice(0, inputIndex[start] + 1)}${due}${text.slice(inputIndex[end - 1] + 1)}`;
   }
   if (categories.size > 1)
-    throw new CommandError("MULTIPLE_CATEGORIES", "shorthand contains multiple categories");
-  if (dues.size > 1) throw new CommandError("INVALID_ARGUMENT", "shorthand contains two due dates");
+    throw new CommandError(
+      "MULTIPLE_CATEGORIES",
+      "This task has more than one category. Keep one @category and remove the others.",
+    );
+  if (dues.size > 1)
+    throw new CommandError(
+      "INVALID_ARGUMENT",
+      "This task has more than one due date. Keep one !date and remove the others.",
+    );
   let title = decoded;
   for (const range of ranges.sort((a, b) => b.start - a.start)) {
     // A marker between two spaces leaves one space, not two.

@@ -16,8 +16,7 @@ export function fakeImageClipboard(): () => Promise<number[] | null> {
   vi.stubGlobal("ClipboardItem", FakeClipboardItem);
   let copied: Blob | null = null;
   const write = vi.spyOn(navigator.clipboard, "write").mockImplementation(async (items) => {
-    const item = items[0] as unknown as FakeClipboardItem;
-    copied = await item.getType("image/png");
+    copied = await items[0].getType("image/png");
   });
   onTestFinished(() => {
     write.mockRestore();

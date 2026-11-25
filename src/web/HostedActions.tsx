@@ -1,35 +1,15 @@
-import { useEffect, useRef, useState, type ReactElement, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { Corner, DownloadButton } from "@/components/live/corners";
 import SquishSwitch from "@/components/react-bits/SquishSwitch";
 import { showTaskToast } from "@/components/TaskToaster";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal } from "@/navigation";
 
 export const RELEASES_URL = "https://github.com/Soleone/tasks/releases/latest";
 const SAMPLE_IDS_KEY = "tasks.sampleTaskIds";
 const SWITCH_ID = "example-tasks-switch";
 const TASK_ROWS = '[role="option"][data-depth]';
-
-/** The tooltip names an action only where the button shows just its icon. */
-function Labeled({
-  label,
-  side,
-  children,
-}: {
-  label: string;
-  side: "left" | "right";
-  children: ReactElement;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger render={children} />
-      <TooltipContent side={side} className="xl:hidden">
-        {label}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
 
 /** Where the quest card reaches under a corner, as on phones, the corner sits just above it. */
 function useAboveQuestCard(): RefObject<HTMLDivElement | null> {
@@ -145,16 +125,14 @@ export function HostedActions({
   async function hide(): Promise<void> {
     const ids = storedSampleIds();
     const leaving = dematerializeRows(ids);
-    // Any row still listed afterwards, as under Canceled, comes back once the list has reloaded.
-    const restore = () =>
-      setTimeout(() => leaving.forEach((animation) => animation.cancel()), 1500);
     try {
       await Promise.all(leaving.map((animation) => animation.finished));
       await removeSamples(ids);
       localStorage.setItem(SAMPLE_IDS_KEY, "[]");
       reloadList();
     } finally {
-      restore();
+      // Any row still listed afterwards, as under Canceled, comes back once the list has reloaded.
+      setTimeout(() => leaving.forEach((animation) => animation.cancel()), 1500);
     }
   }
 
@@ -176,30 +154,38 @@ export function HostedActions({
   return (
     <>
       <Corner side="left" ref={left}>
-        <Labeled label="Show example tasks" side="right">
-          {/* Clicking keeps focus in the list, so its keys go on working. */}
-          <span className="flex items-center" onMouseDown={preventFocusSteal}>
-            <SquishSwitch
-              checked={on}
-              onChange={toggle}
-              id={SWITCH_ID}
-              width={40}
-              height={22}
-              radius={11}
-              trackColor="var(--muted)"
-              trackOnColor="var(--primary)"
-              thumbColor="var(--muted-foreground)"
-              thumbOnColor="var(--primary-foreground)"
-              className="rounded-full has-focus-visible:outline-2 has-focus-visible:outline-offset-4 has-focus-visible:outline-ring"
-            />
-            <label
-              htmlFor={SWITCH_ID}
-              className="ml-2.5 cursor-pointer text-sm font-medium select-none max-xl:sr-only"
-            >
-              Show example tasks
-            </label>
-          </span>
-        </Labeled>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              /* Clicking keeps focus in the list, so its keys go on working. */
+              <span className="flex items-center" onMouseDown={preventFocusSteal}>
+                <SquishSwitch
+                  checked={on}
+                  onChange={toggle}
+                  id={SWITCH_ID}
+                  width={40}
+                  height={22}
+                  radius={11}
+                  trackColor="var(--muted)"
+                  trackOnColor="var(--primary)"
+                  thumbColor="var(--muted-foreground)"
+                  thumbOnColor="var(--primary-foreground)"
+                  className="rounded-full has-focus-visible:outline-2 has-focus-visible:outline-offset-4 has-focus-visible:outline-ring"
+                />
+                <label
+                  htmlFor={SWITCH_ID}
+                  className="ml-2.5 cursor-pointer text-sm font-medium select-none max-xl:sr-only"
+                >
+                  Show example tasks
+                </label>
+              </span>
+            }
+          />
+          {/* The label shows beside the switch on wide screens, so the tooltip is for the rest. */}
+          <TooltipContent side="right" className="xl:hidden">
+            Show example tasks
+          </TooltipContent>
+        </Tooltip>
       </Corner>
       <Corner side="right" ref={right}>
         <DownloadButton href={RELEASES_URL} />

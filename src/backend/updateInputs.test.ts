@@ -8,7 +8,8 @@ import { parseShorthand, typedText } from "./shorthand.js";
 import { buildCreatedTask, parseCreate } from "./createInputs.js";
 import { projectTasks } from "./queries.js";
 import type { QueryAuthority } from "./queryCache.js";
-import { validateTask } from "./taskModel.js";
+import { applyStatus } from "./taskStatus.js";
+import { compareQueue, validateTask } from "./taskModel.js";
 
 const corpus = JSON.parse(
   readFileSync(
@@ -35,6 +36,7 @@ for (const entry of corpus.cases.filter(
         task,
         parseUpdate({ id: "a", expectedVersion: 1, ...entry.action.args }),
         "2026-10-01T00:00:00.000Z",
+        [],
       );
     if (entry.expect.error) {
       assert.throws(
@@ -134,6 +136,7 @@ function typed(text: string) {
     validateTask(corpus.taskTemplate, "a"),
     parseUpdate({ id: "a", expectedVersion: 1, text: `  ${text} ` }),
     at,
+    [],
   ).task;
 }
 
@@ -164,7 +167,7 @@ test("text.cleared: title, category or tag changes without text clear it; other 
     { due: "2026-11-01" },
   ]) {
     assert.equal(
-      applyUpdate(task, parseUpdate({ id: "a", expectedVersion: 1, ...args }), at).task.text,
+      applyUpdate(task, parseUpdate({ id: "a", expectedVersion: 1, ...args }), at, []).task.text,
       null,
       JSON.stringify(args),
     );
@@ -178,7 +181,7 @@ test("text.cleared: title, category or tag changes without text clear it; other 
     { due: null },
   ]) {
     assert.equal(
-      applyUpdate(task, parseUpdate({ id: "a", expectedVersion: 1, ...args }), at).task.text,
+      applyUpdate(task, parseUpdate({ id: "a", expectedVersion: 1, ...args }), at, []).task.text,
       "Call @home #phone",
       JSON.stringify(args),
     );
@@ -213,9 +216,15 @@ test("data.optional-fields: effort is left out at normal and refused outside 1 t
     validateTask(corpus.taskTemplate, "a"),
     parseUpdate({ id: "a", expectedVersion: 1, effort: 4 }),
     at,
+    [],
   ).task;
   assert.equal(large.effort, 4);
-  const normal = applyUpdate(large, parseUpdate({ id: "a", expectedVersion: 2, effort: 3 }), at);
+  const normal = applyUpdate(
+    large,
+    parseUpdate({ id: "a", expectedVersion: 2, effort: 3 }),
+    at,
+    [],
+  );
   assert.equal("effort" in normal.task, false);
   for (const effort of [0, 6, 2.5, "4", null])
     assert.throws(
@@ -223,4 +232,103 @@ test("data.optional-fields: effort is left out at normal and refused outside 1 t
       (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
       String(effort),
     );
+});
+
+test("update.meta: namespaces replace one at a time, null removes one, the time stays", () => {
+  const base = validateTask(corpus.taskTemplate, "a");
+  const update = (task: typeof base, meta: unknown) =>
+    applyUpdate(task, parseUpdate({ id: "a", expectedVersion: 1, meta }), at, []);
+  const first = update(base, { factory: { tier: "grunt" }, other: { x: 1 } });
+  assert.equal(first.changed, true);
+  assert.equal(first.task.updatedAt, base.updatedAt);
+  const second = update(first.task, { factory: { tier: "builder" }, other: null });
+  assert.deepEqual(second.task.meta, { factory: { tier: "builder" } });
+  assert.equal("meta" in update(second.task, { factory: null }).task, false);
+  const retitled = applyUpdate(
+    second.task,
+    parseUpdate({ id: "a", expectedVersion: 2, title: "Renamed" }),
+    at,
+    [],
+  ).task;
+  assert.deepEqual(retitled.meta, { factory: { tier: "builder" } });
+  assert.equal(retitled.updatedAt, at);
+  const created = buildCreatedTask(
+    parseCreate({ title: "Ship", meta: { factory: { gates: ["vp check"] }, gone: null } }),
+    { id: "b", at },
+    [],
+  );
+  assert.deepEqual(created.meta, { factory: { gates: ["vp check"] } });
+  assert.equal(
+    "meta" in buildCreatedTask(parseCreate({ title: "Ship" }), { id: "c", at }, []),
+    false,
+  );
+  for (const meta of [
+    null,
+    [],
+    { factory: 1 },
+    { factory: [] },
+    { Factory: {} },
+    { factory: { text: "\ud800" } },
+    { factory: { big: "x".repeat(65536) } },
+  ])
+    assert.throws(
+      () => parseUpdate({ id: "a", expectedVersion: 1, meta }),
+      (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+      JSON.stringify(meta),
+    );
+  assert.throws(
+    () => validateTask({ ...corpus.taskTemplate, meta: { factory: 2 } }, "a"),
+    (error) => error instanceof CommandError && error.code === "INVALID_CANONICAL",
+  );
+});
+
+test("update.queue: placements land among the queued tasks, null takes the task out, the time stays", () => {
+  const base = validateTask(corpus.taskTemplate, "a");
+  const front = { ...base, id: "f", queue: "a0" };
+  const back = { ...base, id: "b", queue: "a1" };
+  const others = [front, back];
+  const place = (queue: unknown) =>
+    applyUpdate(base, parseUpdate({ id: "a", expectedVersion: 1, queue }), at, [base, ...others])
+      .task;
+  const line = (queue: unknown) =>
+    [...others, place(queue)].sort(compareQueue).map((entry) => entry.id);
+  assert.deepEqual(line({ first: true }), ["a", "f", "b"]);
+  assert.deepEqual(line({ last: true }), ["f", "b", "a"]);
+  assert.deepEqual(line({ afterId: "f" }), ["f", "a", "b"]);
+  assert.deepEqual(line({ beforeId: "f" }), ["a", "f", "b"]);
+  assert.equal(place({ last: true }).updatedAt, base.updatedAt);
+  const queued = { ...base, queue: "a5" };
+  const out = applyUpdate(
+    queued,
+    parseUpdate({ id: "a", expectedVersion: 1, queue: null }),
+    at,
+    [],
+  );
+  assert.equal("queue" in out.task, false);
+  for (const queue of [{ afterId: "missing" }, "a0", { first: false }])
+    assert.throws(
+      () => place(queue),
+      (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+      JSON.stringify(queue),
+    );
+  const done = validateTask({ ...base, status: "done", closedAt: at }, "a");
+  assert.throws(
+    () =>
+      applyUpdate(
+        done,
+        parseUpdate({ id: "a", expectedVersion: 1, queue: { last: true } }),
+        at,
+        [],
+      ),
+    (error) => error instanceof CommandError && error.code === "INVALID_ARGUMENT",
+  );
+});
+
+test("status.leaves-queue: completing or canceling takes a task out of the queue; reopening leaves it out", () => {
+  const queued = validateTask({ ...corpus.taskTemplate, queue: "a0" }, "a");
+  const done = applyStatus(queued, "task.complete", at).task;
+  assert.equal("queue" in done, false);
+  assert.equal("queue" in applyStatus(queued, "task.cancel", at).task, false);
+  assert.equal("queue" in applyStatus(done, "task.reopen", at).task, false);
+  assert.equal(applyStatus(queued, "task.pause", at).task.queue, "a0");
 });

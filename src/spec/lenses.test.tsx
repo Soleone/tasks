@@ -164,3 +164,87 @@ describe("changed by agents", () => {
     );
   });
 });
+
+function queueButton(): HTMLElement | null {
+  return document.querySelector("[data-lens-count=queue]");
+}
+
+function queueMarkers(): (string | null)[] {
+  return [...document.querySelectorAll("[data-task-queue] [aria-label]")].map((marker) =>
+    marker.getAttribute("aria-label"),
+  );
+}
+
+describe("queue", () => {
+  test("queue.add: Q queues the active task at the back, and Q again takes it out", async () => {
+    await workspace.create("First");
+    await workspace.create("Second");
+    const { user } = await workspace.render();
+    await expectActive("Second");
+    await user.keyboard("q{ArrowDown}q");
+    await waitFor(() =>
+      expect(queueMarkers()).toEqual(["Next in the queue", "Number 2 in the queue"]),
+    );
+    expect(queueButton()?.getAttribute("aria-label")).toBe("2 queued");
+    await user.keyboard("q");
+    await waitFor(() => expect(queueMarkers()).toEqual(["Next in the queue"]));
+  });
+
+  test("queue.add: done and canceled tasks can't be queued, and finishing one leaves the queue", async () => {
+    await workspace.create("Task");
+    const { user } = await workspace.render();
+    await expectActive("Task");
+    await user.keyboard("q");
+    await waitFor(() => expect(queueMarkers()).toEqual(["Next in the queue"]));
+    await user.keyboard("{Shift>} {/Shift}");
+    await waitFor(() => expect(queueButton()).toBeNull());
+  });
+
+  test("queue.add: the palette queues the active task, at the back or first", async () => {
+    await workspace.create("First");
+    await workspace.create("Second");
+    const { user } = await workspace.render();
+    await expectActive("Second");
+    await user.keyboard("{Control>}k{/Control}");
+    await user.click(await screen.findByRole("option", { name: /Queue or unqueue task/ }));
+    await waitFor(() => expect(queueMarkers()).toEqual(["Next in the queue"]));
+    await user.keyboard("{ArrowDown}{Control>}k{/Control}");
+    await user.click(await screen.findByRole("option", { name: /Queue task first/ }));
+    await waitFor(() =>
+      expect(queueMarkers()).toEqual(["Number 2 in the queue", "Next in the queue"]),
+    );
+  });
+
+  test("queue.lens: W shows the queue in its order, Shift+Q puts a task first, and W goes back", async () => {
+    await workspace.create("A");
+    await workspace.create("B");
+    await workspace.create("C");
+    await workspace.create("Not queued");
+    const { user } = await workspace.render();
+    await expectRows(["Not queued", "C", "B", "A"]);
+    await user.keyboard("{ArrowDown}q{ArrowDown}q{ArrowDown}");
+    await waitFor(() => expect(queueButton()?.getAttribute("aria-label")).toBe("2 queued"));
+    await user.keyboard("{Shift>}q{/Shift}");
+    await waitFor(() => expect(queueButton()?.getAttribute("aria-label")).toBe("3 queued"));
+    await user.keyboard("w");
+    await expectRows(["A", "C", "B"]);
+    expect(queueButton()?.getAttribute("aria-pressed")).toBe("true");
+    await user.keyboard("w");
+    await expectRows(["Not queued", "C", "B", "A"]);
+  });
+
+  test("queue.move: Ctrl+arrows in the queue lens move a task through the queue, not the list", async () => {
+    await workspace.create("A");
+    await workspace.create("B");
+    const { user } = await workspace.render();
+    await expectRows(["B", "A"]);
+    await user.keyboard("q{ArrowDown}q");
+    await waitFor(() => expect(queueButton()?.getAttribute("aria-label")).toBe("2 queued"));
+    await user.keyboard("w");
+    await expectRows(["B", "A"]);
+    await user.keyboard("{End}{Control>}{ArrowUp}{/Control}");
+    await expectRows(["A", "B"]);
+    await user.keyboard("w");
+    await expectRows(["B", "A"]);
+  });
+});

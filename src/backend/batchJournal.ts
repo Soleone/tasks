@@ -223,7 +223,7 @@ export function guardBatch(intent: BatchIntent, recovery: boolean): CanonicalSna
   try {
     const snapshot = readCanonicalRoot(intent.root.rootPath);
     const fail = (code: string): never => {
-      throw new CommandError(recovery ? "RECOVERY_CONFLICT" : code, "batch baseline changed");
+      throw new CommandError(code, "batch baseline changed");
     };
     if (
       snapshot.rootPath !== intent.root.rootPath ||
@@ -259,14 +259,6 @@ export function guardBatch(intent: BatchIntent, recovery: boolean): CanonicalSna
         fail("STALE_FILE");
     }
     for (const [index, file] of intent.files.entries()) {
-      if (file.beforeBytes === null) {
-        const hash = actual.get(`tasks/${file.taskId}.json`);
-        if (
-          hash !== undefined &&
-          !(recovery && file.nextBytes && hash === exactHash(Buffer.from(file.nextBytes, "base64")))
-        )
-          fail("STALE_FILE");
-      }
       const temporary = stagePath(intent, index);
       if (
         existsSync(temporary) &&

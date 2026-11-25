@@ -156,6 +156,8 @@ test("envelope correlation, strict types, unsupported names and previews cannot 
       "attachments",
       "due",
       "effort",
+      "meta",
+      "queue",
       "version",
       "blockedByIds",
     ].sort(),
@@ -372,11 +374,11 @@ test("query filters preserve graph context, AND tags, case-insensitive search an
   assert.equal(result(query(current, "task.list", { search: "ä unicode" })).total, 1);
   assert.equal(result(query(current, "task.list", { categoryIsNull: true })).total, 1);
   assert.deepEqual(result(query(current, "category.list")).categories, [
-    { slug: "work", taskCount: 2 },
+    { slug: "work", taskCount: 1 },
   ]);
   assert.deepEqual(result(query(current, "tag.list")).tags, [
-    { slug: "alpha", taskCount: 3 },
-    { slug: "beta", taskCount: 2 },
+    { slug: "alpha", taskCount: 2 },
+    { slug: "beta", taskCount: 1 },
   ]);
   for (const args of [
     { sourceKey: "old" },

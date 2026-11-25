@@ -5,7 +5,13 @@ import type { ClassificationOption, TaskView } from "./taskView";
 import type { VisibleTaskRow } from "./taskTree";
 import { forwardStatusTransition, reverseStatusTransition } from "./taskStatusCycle";
 import { taskStatusMeta } from "./taskFilters";
-import { TaskRow, TaskStatusDisplay, TaskStatusToggle, taskContextMessage } from "./TaskRow";
+import {
+  TaskRow,
+  TaskStatusDisplay,
+  TaskStatusToggle,
+  taskContextMessage,
+  type QueueArrival,
+} from "./TaskRow";
 import { TaskComposer, type ComposerState, type TaskCreateDraft } from "./TaskComposer";
 import { preventFocusSteal } from "@/navigation";
 import type { TaskMutationResult } from "@/platform/backendClient";
@@ -35,6 +41,9 @@ type TaskOptionProps = {
   exitingTaskIds: ReadonlySet<string>;
   showDetails: boolean;
   note?: string;
+  queuePosition: number | undefined;
+  queueColumn: boolean;
+  queueArrival: QueueArrival | undefined;
   showCompletedAt: boolean;
   completedClockOnly: boolean;
   hiddenCategorySlug: string | null;
@@ -62,6 +71,9 @@ export const TaskOption = memo(function TaskOption({
   exitingTaskIds,
   showDetails,
   note,
+  queuePosition,
+  queueColumn,
+  queueArrival,
   showCompletedAt,
   completedClockOnly,
   hiddenCategorySlug,
@@ -76,12 +88,7 @@ export const TaskOption = memo(function TaskOption({
   onEditDescription,
 }: TaskOptionProps): ReactElement {
   const { task } = row;
-  const blockedByLabels = task.blockedByIds
-    .map((id) => {
-      const blocker = taskById.get(id);
-      return blocker ? blocker.title : null;
-    })
-    .filter((label): label is string => label !== null);
+  const blockedByLabels = task.blockedByIds.flatMap((id) => taskById.get(id)?.title ?? []);
   const DisclosureIcon = expanded ? ChevronDown : ChevronRight;
 
   return (
@@ -115,6 +122,9 @@ export const TaskOption = memo(function TaskOption({
           blockedByLabels={blockedByLabels}
           showDetails={showDetails}
           note={note}
+          queuePosition={queuePosition}
+          queueColumn={queueColumn}
+          queueArrival={queueArrival}
           showCompletedAt={showCompletedAt}
           completedClockOnly={completedClockOnly}
           contextOnly={row.contextOnly}
@@ -187,10 +197,13 @@ export function OptimisticTaskOption({
   task,
   showDetails,
   hiddenCategorySlug,
+  departing = false,
 }: {
   task: TaskView;
   showDetails: boolean;
   hiddenCategorySlug: string | null;
+  /** Saved, but outside the view: it shows where it went, then slides out. */
+  departing?: boolean;
 }): ReactElement {
   return (
     <TaskItem
@@ -198,9 +211,10 @@ export function OptimisticTaskOption({
       role="option"
       aria-selected={false}
       aria-disabled="true"
-      aria-busy="true"
+      aria-busy={!departing}
       tabIndex={-1}
       data-optimistic-task
+      data-departing-task={departing || undefined}
       size="sm"
     >
       <TaskRow
@@ -222,11 +236,13 @@ export function isEditorSaving(): boolean {
 
 // What a new task starts as, so capture shows the glyph it will save with.
 const NEW_TASK_STATUS = { status: "open", priority: 2, effort: 3 } as const;
+const LOGGED_TASK_STATUS = { ...NEW_TASK_STATUS, status: "done" } as const;
 
 export function InlineTaskComposer({
   composer,
   categories,
   categoryColumn,
+  queueColumn,
   onClose,
   onSaved,
   onCreatePending,
@@ -237,6 +253,7 @@ export function InlineTaskComposer({
   composer: ComposerState;
   categories: ClassificationOption[];
   categoryColumn: boolean;
+  queueColumn: boolean;
   onClose: () => void;
   onSaved: (result: TaskMutationResult) => void;
   onCreatePending: (draft: TaskCreateDraft) => void;
@@ -246,9 +263,8 @@ export function InlineTaskComposer({
 }): ReactElement {
   const task = composer.mode === "edit" ? composer.task : undefined;
   const parentId = composer.mode === "create" ? composer.parentId : undefined;
-  const initialTitle = composer.mode === "create" ? composer.initialTitle : undefined;
-  const logged = composer.mode === "create" && composer.logged === true;
   const indented = (task ? task.parentId : parentId) != null;
+  const logged = composer.mode === "create" && composer.logged === true;
 
   // Laid out like the row it replaces: the status glyph, then the title, so nothing shifts when
   // editing starts.
@@ -265,18 +281,26 @@ export function InlineTaskComposer({
     >
       <div className={cn("flex min-w-0 flex-1 items-start gap-2.5", indented && "pl-6")}>
         <div className="flex h-[1.375em] w-8 shrink-0 items-center justify-center">
-          <TaskStatusDisplay task={task ?? NEW_TASK_STATUS} />
+          {logged ? (
+            // Already done, so the circle checks itself as the editor opens.
+            <span className="task-completion-icon">
+              <TaskStatusDisplay task={LOGGED_TASK_STATUS} />
+            </span>
+          ) : (
+            <TaskStatusDisplay task={task ?? NEW_TASK_STATUS} />
+          )}
         </div>
         <TaskComposer
           key={task ? task.id : `create-${parentId ?? "root"}`}
           task={task}
           parentId={parentId}
-          initialTitle={initialTitle}
+          initialTitle={composer.mode === "create" ? composer.initialTitle : undefined}
           initialDescription={composer.mode === "create" ? composer.initialDescription : undefined}
           initialImage={composer.mode === "create" ? composer.initialImage : undefined}
           logged={logged}
           categories={categories}
           categoryColumn={categoryColumn}
+          queueColumn={queueColumn}
           onSaved={onSaved}
           onCreatePending={onCreatePending}
           onCreateFailed={onCreateFailed}

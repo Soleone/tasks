@@ -1,9 +1,9 @@
 import { generateKeyBetween } from "fractional-indexing";
 import { CommandError } from "./errors.js";
 import { assertArgs } from "./protocol.js";
-import { compareTasks, isOrderKey, isTimestamp, validateTask } from "./taskModel.js";
+import { compareTasks, isOrderKey, isTimestamp } from "./taskModel.js";
 import { DEFAULT_EFFORT } from "./taskModel.js";
-import type { CanonicalTask, TaskEffort } from "./taskModel.js";
+import type { CanonicalTask, TaskEffort, TaskMeta } from "./taskModel.js";
 import { parseContentPatch } from "./updateInputs.js";
 
 export type CreateInput = Pick<
@@ -12,6 +12,7 @@ export type CreateInput = Pick<
 > & {
   due: string | null;
   effort: TaskEffort;
+  meta: TaskMeta;
   attachments: string[];
   /** Logs a task already done at this time, not after now. */
   closedAt: string | null;
@@ -27,6 +28,7 @@ export function parseCreate(args: Record<string, unknown>): CreateInput {
     "tags",
     "due",
     "effort",
+    "meta",
     "attachments",
     "parentId",
     "closedAt",
@@ -51,10 +53,18 @@ export function parseCreate(args: Record<string, unknown>): CreateInput {
     tags: patch.tags ?? [],
     due: patch.due ?? null,
     effort: patch.effort ?? DEFAULT_EFFORT,
+    meta: mergedMeta(patch.meta),
     attachments: patch.attachments ?? [],
     parentId: (args.parentId as string | null | undefined) ?? null,
     closedAt: (args.closedAt as string | undefined) ?? null,
   };
+}
+
+/** A new task has nothing to remove, so `null` namespaces just stay out. */
+function mergedMeta(meta: Record<string, TaskMeta[string] | null> | undefined): TaskMeta {
+  const kept: TaskMeta = {};
+  for (const [key, value] of Object.entries(meta ?? {})) if (value !== null) kept[key] = value;
+  return kept;
 }
 
 export function buildCreatedTask(
@@ -76,26 +86,24 @@ export function buildCreatedTask(
       "ORDER_KEY_LIMIT",
       "first-position allocation exceeds the canonical key limit",
     );
-  return validateTask(
-    {
-      id: taskIdentity.id,
-      title: input.title,
-      text: input.text,
-      description: input.description,
-      status: input.closedAt === null ? "open" : "done",
-      priority: input.priority,
-      category: input.category,
-      tags: input.tags,
-      parentId: input.parentId,
-      dependencyIds: [],
-      orderKey,
-      createdAt: taskIdentity.at,
-      updatedAt: taskIdentity.at,
-      closedAt: input.closedAt,
-      ...(input.attachments.length > 0 ? { attachments: input.attachments } : {}),
-      ...(input.due !== null ? { due: input.due } : {}),
-      ...(input.effort !== DEFAULT_EFFORT ? { effort: input.effort } : {}),
-    },
-    taskIdentity.id,
-  );
+  return {
+    id: taskIdentity.id,
+    title: input.title,
+    text: input.text,
+    description: input.description,
+    status: input.closedAt === null ? "open" : "done",
+    priority: input.priority,
+    category: input.category,
+    tags: input.tags,
+    parentId: input.parentId,
+    dependencyIds: [],
+    orderKey,
+    createdAt: taskIdentity.at,
+    updatedAt: taskIdentity.at,
+    closedAt: input.closedAt,
+    ...(input.attachments.length > 0 ? { attachments: input.attachments } : {}),
+    ...(input.due !== null ? { due: input.due } : {}),
+    ...(input.effort !== DEFAULT_EFFORT ? { effort: input.effort } : {}),
+    ...(Object.keys(input.meta).length > 0 ? { meta: input.meta } : {}),
+  };
 }

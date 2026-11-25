@@ -32,8 +32,7 @@ import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ClassificationOption } from "./taskView";
 import {
-  EXACT_STATUS_META,
-  PRIORITY_META,
+  taskStatusMeta,
   STATUS_PRESET_LABELS,
   type SortDirection,
   type SortField,
@@ -55,8 +54,8 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./ui/breadcrumb
 import { Button } from "./ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 import { Popover, PopoverTrigger } from "./ui/popover";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "./ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "./ui/tooltip";
 import { preventFocusSteal } from "@/navigation";
 import { ButtonRow, ToolbarGroup } from "@/components/variants/button-group";
 import {
@@ -364,11 +363,7 @@ export function TaskListToolbar({
     : exactStatus !== null
       ? statusesLabel([exactStatus])
       : STATUS_PRESET_LABELS[statusPreset];
-  const priorityLabel =
-    priorityFilter !== null
-      ? (PRIORITY_META.find((meta) => meta.value === priorityFilter)?.shortLabel ??
-        `P${priorityFilter}`)
-      : "Priority";
+  const priorityLabel = priorityFilter !== null ? `P${priorityFilter}` : "Priority";
   const searchActive = searchQuery.trim() !== "";
   // Descending is the default direction. The toggle is highlighted only
   // after reversing that default to ascending order.
@@ -885,7 +880,7 @@ export function TaskListToolbar({
 /** "Done", or "Open, in progress, paused". */
 function statusesLabel(statuses: TaskStatus[]): string {
   const label = statuses
-    .map((status) => EXACT_STATUS_META.find((entry) => entry.status === status)?.label ?? status)
+    .map((status) => taskStatusMeta[status].label)
     .join(", ")
     .toLowerCase();
   return label.charAt(0).toUpperCase() + label.slice(1);

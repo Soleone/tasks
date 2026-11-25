@@ -19,6 +19,8 @@ function task(id: string, status: TaskStatus, closedAt: string | null): TaskProj
     attachments: [],
     due: null,
     effort: 3,
+    meta: {},
+    queue: null,
     orderKey: `a${id}`,
     createdAt: "2026-10-20T08:00:00.000Z",
     updatedAt: "2026-10-20T08:00:00.000Z",
@@ -139,6 +141,20 @@ test("list.sort-effort: largest first, the same effort by priority", () => {
     ).tasks.map((entry) => entry.id);
   assert.deepEqual(order({}), ["huge-p1", "huge-p3", "normal", "tiny"]);
   assert.deepEqual(order({ direction: "asc" }), ["tiny", "normal", "huge-p1", "huge-p3"]);
+});
+
+test("list.queue: queued matches the queue, and the queue sort puts the front first", () => {
+  const lined = [
+    { ...task("second", "open", null), queue: "a1" },
+    task("none", "open", null),
+    { ...task("first", "open", null), queue: "a0" },
+  ];
+  const order = (args: Record<string, unknown>): string[] =>
+    (executeQuery("task.list", args, lined, 1) as { tasks: TaskProjection[] }).tasks.map(
+      (entry) => entry.id,
+    );
+  assert.deepEqual(order({ queued: true, sort: "queue" }), ["first", "second"]);
+  assert.deepEqual(order({ sort: "queue", direction: "desc" }), ["second", "first", "none"]);
 });
 
 test("list.ids: only the named tasks match; unknown ids match nothing", () => {

@@ -26,12 +26,12 @@ export function isDesktopApp(): boolean {
 
 type Platform = "macos" | "windows" | "linux";
 
-const USER_AGENTS: [Platform, RegExp][] = [
-  ["macos", /\b(Macintosh|iPhone|iPad)\b/],
-  ["windows", /\bWindows\b/],
-];
 const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
-const platform = USER_AGENTS.find(([, pattern]) => pattern.test(userAgent))?.[0] ?? "linux";
+const platform: Platform = /\b(Macintosh|iPhone|iPad)\b/.test(userAgent)
+  ? "macos"
+  : /\bWindows\b/.test(userAgent)
+    ? "windows"
+    : "linux";
 
 /** Keys that hints name differently per platform. `Mod` is the app's main shortcut modifier. */
 const KEY_NAMES: Record<Platform, Partial<Record<string, string>>> = {

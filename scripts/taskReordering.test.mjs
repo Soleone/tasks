@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   placementForMove,
-  placementTargetId,
   selectableSiblingRows,
   selectedRowsForReorder,
   selectionMembershipMatches,
@@ -54,12 +53,10 @@ test("move placements preserve selected siblings and report visible boundaries",
   assert.equal(placementForMove("up", rows[1], [row("missing")], rows), null);
 });
 
-test("reorder refresh checks selection by membership and narrows placement targets", () => {
+test("reorder refresh checks selection by membership", () => {
   const rows = [row("a"), row("b")];
 
   assert.equal(selectionMembershipMatches(rows, ["b", "a"]), true);
   assert.equal(selectionMembershipMatches(rows, ["a", "missing"]), false);
   assert.equal(selectionMembershipMatches(rows, ["a"]), false);
-  assert.equal(placementTargetId({ beforeId: "a" }), "a");
-  assert.equal(placementTargetId({ afterId: "b" }), "b");
 });

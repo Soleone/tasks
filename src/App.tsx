@@ -33,12 +33,7 @@ import {
   type GoalLens,
   type ListLens,
 } from "@/components/listLens";
-import {
-  sortSummary,
-  type SortDirection,
-  type SortField,
-  type StatusPreset,
-} from "@/components/taskFilters";
+import { sortSummary, type SortField, type StatusPreset } from "@/components/taskFilters";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { StatusMenu } from "@/components/StatusMenu";
 import { PriorityMenu } from "@/components/PriorityMenu";
@@ -49,7 +44,7 @@ import { HelpPalette } from "@/components/HelpPalette";
 import { LearnIcon } from "@/components/LearnIcon";
 import { LearnPanel } from "@/components/LearnPanel";
 import { QuestCard } from "@/components/QuestCard";
-import { AgentChanges, DoneToday, DueNow } from "@/components/LensCounts";
+import { AgentChanges, DoneToday, DueNow, Queue } from "@/components/LensCounts";
 import { ConflictCount, ConflictDialog } from "@/components/SyncConflicts";
 import { TaskPicker, type TaskPickerMode } from "@/components/TaskPicker";
 import { useTheme } from "@/components/soleone/theme";
@@ -67,8 +62,8 @@ import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
 import { takeCapture, type Capture } from "@/platform/mobileImages";
 import { ToggleButton } from "@/components/variants/button";
 import { ButtonRow } from "@/components/variants/button-group";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { preventFocusSteal, useFocusNavigation, useFocusStack } from "@/navigation";
 import { keepSyncConflictVersion, selectMainWorkspace } from "@/platform/backendClient";
 import { APP_NAME } from "./backend/branding";
@@ -80,127 +75,30 @@ import {
 import { practice, useLearning } from "@/learning/progress";
 import { useQuests } from "@/learning/questProgress";
 import { readPreference, writePreference } from "@/platform/preferences";
+import {
+  COMPLETED_SORT_KEY,
+  FOLDED_TOOLBAR_GROUPS_KEY,
+  type ListView,
+  readExactStatus,
+  readFoldedToolbarGroups,
+  readInitialCategoryFilter,
+  readInitialTagFilter,
+  readPriorityFilter,
+  readShowDetails,
+  readSortDirection,
+  readSortField,
+  readStatusPreset,
+  SEARCH_QUERY_KEY,
+  SHOW_DETAILS_KEY,
+  UNBLOCKED_FILTER_KEY,
+  VIEW_PREFERENCES,
+} from "@/listViewPreferences";
 import { renameCategorySettings, useSharedSettings } from "@/platform/sharedSettings";
 import { isMobileApp } from "@/platform/runtime";
 import { ariaShortcut, boundAction } from "@/keymap";
 import { BindingKbd } from "@/components/variants/kbd";
 import { THEME_STORAGE_KEY } from "@/theme/config";
 import { takeUserThemeProblems } from "@/theme/userThemes";
-
-const STATUS_PRESET_KEY = "tasks.statusPreset";
-const EXACT_STATUS_KEY = "tasks.exactStatus";
-const PRIORITY_FILTER_KEY = "tasks.priorityFilter";
-const TAG_FILTER_KEY = "tasks.tagFilter";
-const SEARCH_QUERY_KEY = "tasks.searchQuery";
-const UNBLOCKED_FILTER_KEY = "tasks.showUnblocked";
-const CATEGORY_FILTER_KEY = "tasks.categoryFilter";
-const SORT_FIELD_KEY = "tasks.sortField";
-const SORT_DIRECTION_KEY = "tasks.sortDirection";
-const COMPLETED_SORT_KEY = "tasks.completedSort";
-const SHOW_DETAILS_KEY = "tasks.showDetails";
-const FOLDED_TOOLBAR_GROUPS_KEY = "tasks.foldedToolbarGroups";
-const LEGACY_SHOW_TIMESTAMPS_KEY = "tasks.showTimestamps";
-
-function readStatusPreset(): StatusPreset {
-  const stored = readPreference(STATUS_PRESET_KEY);
-  return stored === "inactive" || stored === "all" ? stored : "active";
-}
-
-function readExactStatus(): TaskStatus | null {
-  const stored = readPreference(EXACT_STATUS_KEY);
-  return stored === "open" ||
-    stored === "in_progress" ||
-    stored === "paused" ||
-    stored === "done" ||
-    stored === "canceled"
-    ? stored
-    : null;
-}
-
-function readPriorityFilter(): TaskPriority | null {
-  const stored = readPreference(PRIORITY_FILTER_KEY);
-  return stored !== null && /^[0-4]$/.test(stored) ? (Number(stored) as TaskPriority) : null;
-}
-
-function readInitialCategoryFilter(): ClassificationToken | null {
-  const slug = readPreference(CATEGORY_FILTER_KEY);
-  return slug ? { slug, label: slug } : null;
-}
-
-function readInitialTagFilter(): ClassificationOption[] {
-  const stored = readPreference(TAG_FILTER_KEY);
-  if (!stored) return [];
-  try {
-    const value: unknown = JSON.parse(stored);
-    if (!Array.isArray(value) || !value.every((entry) => typeof entry === "string")) return [];
-    return value.map((slug) => ({ slug, label: slug, taskCount: 0 }));
-  } catch {
-    return [];
-  }
-}
-
-function readSortField(): SortField {
-  const stored = readPreference(SORT_FIELD_KEY);
-  return stored === "created" ||
-    stored === "updated" ||
-    stored === "priority" ||
-    stored === "effort" ||
-    stored === "due" ||
-    stored === "manual"
-    ? stored
-    : "created";
-}
-
-function readSortDirection(): SortDirection {
-  return readPreference(SORT_DIRECTION_KEY) === "asc" ? "asc" : "desc";
-}
-
-function readShowDetails(): boolean {
-  return (
-    (readPreference(SHOW_DETAILS_KEY) ?? readPreference(LEGACY_SHOW_TIMESTAMPS_KEY)) === "true"
-  );
-}
-
-function readFoldedToolbarGroups(): ToolbarFoldGroup[] {
-  try {
-    const stored: unknown = JSON.parse(readPreference(FOLDED_TOOLBAR_GROUPS_KEY) ?? "[]");
-    return TOOLBAR_FOLD_GROUPS.filter((group) => Array.isArray(stored) && stored.includes(group));
-  } catch {
-    return [];
-  }
-}
-
-/** What the list shows: remembered between launches, and set aside while the done lens is on. */
-type ListView = {
-  statusPreset: StatusPreset;
-  exactStatus: TaskStatus | null;
-  priorityFilter: TaskPriority | null;
-  tagFilter: ClassificationOption[];
-  searchQuery: string;
-  showUnblocked: boolean;
-  categoryFilter: ClassificationToken | null;
-  sortField: SortField;
-  sortDirection: SortDirection;
-  /** Whether the Done filter sorts by completion; other views never do. */
-  completedSort: boolean;
-};
-
-/** How each part of the list view is stored. */
-const VIEW_PREFERENCES: [key: string, stored: (view: ListView) => string][] = [
-  [STATUS_PRESET_KEY, (view) => view.statusPreset],
-  [EXACT_STATUS_KEY, (view) => view.exactStatus ?? ""],
-  [
-    PRIORITY_FILTER_KEY,
-    (view) => (view.priorityFilter === null ? "" : String(view.priorityFilter)),
-  ],
-  [TAG_FILTER_KEY, (view) => JSON.stringify(view.tagFilter.map((tag) => tag.slug))],
-  [SEARCH_QUERY_KEY, (view) => view.searchQuery],
-  [UNBLOCKED_FILTER_KEY, (view) => String(view.showUnblocked)],
-  [CATEGORY_FILTER_KEY, (view) => view.categoryFilter?.slug ?? ""],
-  [SORT_FIELD_KEY, (view) => view.sortField],
-  [SORT_DIRECTION_KEY, (view) => view.sortDirection],
-  [COMPLETED_SORT_KEY, (view) => String(view.completedSort)],
-];
 
 /** The lens on screen and the way back from it. Switching lenses keeps the way back. */
 type OpenLens = { lens: ListLens; returnTo: ListView; place: TaskListPlace | null };
@@ -377,7 +275,14 @@ export default function App({
     isCurrentViewMatch,
   } = taskView;
   const [conflictsOpen, setConflictsOpen] = useState(false);
-  const { doneToday: doneTodayCount, dueNow: dueNowCount, goals, week } = useHeaderCounts(tasks);
+  const {
+    doneToday: doneTodayCount,
+    dueNow: dueNowCount,
+    queue,
+    goals,
+    week,
+  } = useHeaderCounts(tasks);
+  const queuePositions = useMemo(() => new Map(queue.map((id, index) => [id, index + 1])), [queue]);
   const doneHistory = useDoneHistory(report !== null, tasks);
   // A day from the report shows that day's goals in the done lens.
   const lensGoals =
@@ -415,6 +320,7 @@ export default function App({
     historyBusy,
     newTaskId,
     savedTask,
+    departingTask,
     exitingTaskIds,
     landingTaskIds,
     pickerRemoveBlocker,
@@ -546,9 +452,8 @@ export default function App({
     }
   });
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => onAppKeyDown(event);
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onAppKeyDown);
+    return () => window.removeEventListener("keydown", onAppKeyDown);
   }, []);
 
   function openHelp(): void {
@@ -588,13 +493,14 @@ export default function App({
       categoryFilter: null,
       sortDirection: "desc" as const,
     };
-    // Done sorts by its own Completed order; due sorts soonest first; agents, latest change first.
+    // Done sorts by its own Completed order; due sorts soonest first; agents, latest change first;
+    // the queue in its manual order, which is the queue's own.
     return next.kind === "done"
       ? { ...cleared, exactStatus: "done", sortField, completedSort: true }
       : {
           ...cleared,
           exactStatus: null,
-          sortField: next.kind === "due" ? "due" : "updated",
+          sortField: next.kind === "due" ? "due" : next.kind === "queue" ? "manual" : "updated",
           completedSort,
         };
   }
@@ -672,17 +578,18 @@ export default function App({
     setAnnouncement(`Showing tasks ${lensPhrase(next)}`);
   }
 
-  /** Opens the goal report on today, from the done count's ring or the done lens's week. */
-  function openGoalReport(range: ReportRange, from: "count" | "week" = "count"): void {
+  /** Opens the goal report on today, flying in from the done lens's week dots when they show. */
+  function openGoalReport(range: ReportRange): void {
     if (!hasGoals(sharedSettings)) {
       showTaskToast("Set a goal in Settings › Goals to see how your days went");
       return;
     }
+    const dots = weekDots();
     setHelpOpen(false);
     setReport({
       range,
       day: dayOf(sharedSettings, new Date()),
-      takeOff: from === "week" ? { kind: "week", dots: weekDots() } : { kind: "count" },
+      takeOff: dots.size > 0 ? { kind: "week", dots } : { kind: "count" },
     });
     setAnnouncement("Showing the goal report");
   }
@@ -715,7 +622,7 @@ export default function App({
     // From the palette, inherit its return target like settings does so the
     // picker's close restores focus past the unmounted palette search field.
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("picker", fromPalette ?? undefined);
+    focusStack.push("picker", fromPalette);
     setHelpOpen(false);
     setPicker({ mode, subject });
   }
@@ -726,32 +633,28 @@ export default function App({
 
   function openCategoryPicker(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("category-picker", fromPalette ?? undefined);
+    focusStack.push("category-picker", fromPalette);
     setHelpOpen(false);
     setCategoryPickerOpen(true);
   }
 
-  function closeCategoryPicker(): void {
-    setCategoryPickerOpen(false);
-  }
-
   function openStatusMenu(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("status-menu", fromPalette ?? undefined);
+    focusStack.push("status-menu", fromPalette);
     setHelpOpen(false);
     setStatusMenuOpen(true);
   }
 
   function openPriorityMenu(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("priority-menu", fromPalette ?? undefined);
+    focusStack.push("priority-menu", fromPalette);
     setHelpOpen(false);
     setPriorityMenuOpen(true);
   }
 
   function openTagPicker(): void {
     const fromPalette = helpOpen ? focusStack.restore("help") : undefined;
-    focusStack.push("tag-picker", fromPalette ?? undefined);
+    focusStack.push("tag-picker", fromPalette);
     setHelpOpen(false);
     setTagPickerOpen(true);
   }
@@ -763,7 +666,7 @@ export default function App({
       searchInput.current?.focus();
       return;
     }
-    focusStack.push("search", fromPalette ?? undefined);
+    focusStack.push("search", fromPalette);
     setSearchOpen(true);
   }
 
@@ -826,13 +729,6 @@ export default function App({
     setAnnouncement(increase === 0 ? "Font size reset" : `Font size increased by ${increase}%`);
   }
 
-  function chooseExactStatus(status: TaskStatus | null): void {
-    setStatusMenuOpen(false);
-    setOpenLens(null);
-    setExactStatus(status);
-    requestActiveTask();
-  }
-
   function chooseStatusSelection(
     preset: StatusPreset | undefined,
     exact: TaskStatus | null | undefined,
@@ -847,14 +743,6 @@ export default function App({
     requestActiveTask();
   }
 
-  function resetStatusFilter(): void {
-    chooseStatusSelection("active", null);
-  }
-
-  function showAllStatuses(): void {
-    chooseStatusSelection("all", null);
-  }
-
   function choosePriority(priority: TaskPriority | null): void {
     setPriorityMenuOpen(false);
     setPriorityFilter(priority);
@@ -866,11 +754,14 @@ export default function App({
     requestActiveTask();
   }
 
+  function typeSearch(query: string): void {
+    setSearchQuery(query);
+    requestActiveTask();
+  }
+
   function chooseSearch(query: string): void {
     if (searchOpen) closeSearch();
-    const next = query.trim();
-    setSearchQuery(next);
-    requestActiveTask();
+    typeSearch(query.trim());
   }
 
   function clearAllFilters(): void {
@@ -952,14 +843,23 @@ export default function App({
       {/* Desktop content is 20 cells wide, keeping the header buttons on the toolbar grid. */}
       <div className="app-shell mx-auto flex h-full min-h-0 w-full max-w-170 flex-col gap-6 overflow-hidden md:max-w-224">
         <header className="relative flex items-center justify-between gap-4" data-app-header>
-          <h1 className="flex items-center font-semibold">
+          {/* When the counts crowd the header, the wordmark wraps onto a clipped second line, leaving the icon. */}
+          <h1 className="flex h-8 min-w-0 flex-1 flex-wrap items-center overflow-hidden font-semibold">
             {/* Center the artwork on the first cell and the title's ink rather than its line box. */}
             <AppIcon className="size-8 shrink-0 -translate-y-0.25" />
             <span className="text-3xl leading-none">{APP_NAME}</span>
           </h1>
           {/* The count stands apart from the joined group, so its pressed state keeps round corners. */}
-          <div className="flex items-center">
+          <div className="flex shrink-0 items-center">
             <ConflictCount total={syncConflicts.length} onOpen={() => setConflictsOpen(true)} />
+            <Queue
+              total={queue.length}
+              lensOn={lens?.kind === "queue"}
+              onToggleLens={() => {
+                practice("queue.lens", "pointer");
+                toggleLens("queue");
+              }}
+            />
             <AgentChanges
               total={agentChanges.total}
               agents={[...new Set(agentChanges.changes.map((change) => change.agent))]}
@@ -1087,6 +987,7 @@ export default function App({
           categories={categories}
           newTaskId={newTaskId}
           savedTask={savedTask}
+          departingTask={departingTask}
           exitingTaskIds={exitingTaskIds}
           contextTasks={contextTasks}
           contextOrder={contextOrder}
@@ -1100,13 +1001,14 @@ export default function App({
           goals={lensGoals}
           week={lens?.kind === "done" && lens.day === undefined ? week : null}
           onGoalLens={narrowDoneLens}
+          queuePositions={queuePositions}
           agentNotes={agentNotes}
           statusPreset={statusPreset}
           exactStatus={exactStatus}
           onToggleStatusPreset={toggleStatusPreset}
-          onResetStatusFilter={resetStatusFilter}
-          onShowAllStatuses={showAllStatuses}
-          onExactStatus={chooseExactStatus}
+          onResetStatusFilter={() => chooseStatusSelection("active", null)}
+          onShowAllStatuses={() => chooseStatusSelection("all", null)}
+          onExactStatus={(status) => chooseStatusSelection(undefined, status)}
           onOpenStatusMenu={openStatusMenu}
           priorityFilter={priorityFilter}
           onPriorityFilter={choosePriority}
@@ -1139,8 +1041,8 @@ export default function App({
               <InlineSearch
                 ref={searchInput}
                 initialQuery={searchQuery}
+                onType={typeSearch}
                 onSelect={chooseSearch}
-                onClose={closeSearch}
               />
             ) : null
           }
@@ -1215,7 +1117,8 @@ export default function App({
         onOpenThemes={openThemes}
         onToggleLens={toggleLens}
         onWidenDoneLens={widenDoneLens}
-        onOpenGoalReport={() => openGoalReport("month")}
+        onOpenGoalReport={openGoalReport}
+        onOpenLearn={() => setLearnOpen(true)}
         onCreate={openCreate}
         onLogDone={openLog}
         onCreateChild={(task) => openCreate(task.id)}
@@ -1227,6 +1130,10 @@ export default function App({
         activeTask={taskListRef.current?.getActiveTask()}
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}
+        onQueueTask={(task, front) => {
+          setHelpOpen(false);
+          void taskListRef.current?.queueTask(task, front);
+        }}
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
         onCopyTask={(task) => void copyTaskText(task)}
         onCopyImage={(task) =>
@@ -1246,7 +1153,7 @@ export default function App({
       {categoryPickerOpen ? (
         <CategoryPicker
           open
-          onClose={closeCategoryPicker}
+          onClose={() => setCategoryPickerOpen(false)}
           finalFocus={() => focusStack.restore("category-picker") ?? undefined}
           onSelect={chooseCategory}
           onRenamed={(renamed) => {

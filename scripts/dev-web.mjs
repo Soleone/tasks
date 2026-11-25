@@ -10,21 +10,20 @@ const { viteArgs } = options;
 const root = path.resolve(import.meta.dirname, "..");
 let backendArgs = options.backendArgs;
 let viteEnv = process.env;
-let copy;
+let copyHome;
 if (options.real) {
-  copy = await realSnapshot(options.refresh);
+  copyHome = (await realSnapshot(options.refresh)).home;
 } else if (backendArgs.length === 0) {
   // Without a selection, run on a fresh copy of the fixture so the real workspace is never opened.
-  const home = mkdtempSync(path.join(tmpdir(), "tasks-dev-"));
-  cpSync(path.join(root, "scripts/fixtures/workspace/root"), path.join(home, "sync"), {
+  copyHome = mkdtempSync(path.join(tmpdir(), "tasks-dev-"));
+  cpSync(path.join(root, "scripts/fixtures/workspace/root"), path.join(copyHome, "sync"), {
     recursive: true,
   });
-  mkdirSync(path.join(home, "local"));
-  copy = { home };
-  process.stdout.write(`[dev:web] disposable Tasks home in ${home}\n`);
+  mkdirSync(path.join(copyHome, "local"));
+  process.stdout.write(`[dev:web] disposable Tasks home in ${copyHome}\n`);
 }
-if (copy) {
-  backendArgs = ["--home", copy.home];
+if (copyHome) {
+  backendArgs = ["--home", copyHome];
   // The UI asks before opening a folder picked by hand; copies made here open directly.
   viteEnv = { ...process.env, VITE_DEV_WORKSPACE_COPY: "1" };
 }
@@ -71,20 +70,16 @@ function shutdown(signal) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-let exited = 0;
-function onExit(child, name, code) {
+function onExit(name, code) {
   if (shuttingDown) {
     return;
   }
-  exited += 1;
   process.stderr.write(`[dev:web] ${name} exited with code ${code ?? "unknown"}; stopping.\n`);
   shutdown("SIGTERM");
-  if (exited === 1) {
-    setTimeout(() => process.exit(typeof code === "number" ? code : 1), 500).unref();
-  }
+  setTimeout(() => process.exit(typeof code === "number" ? code : 1), 500).unref();
 }
 
-backend.on("exit", (code) => onExit(backend, "backend", code));
-vite.on("exit", (code) => onExit(vite, "vite", code));
+backend.on("exit", (code) => onExit("backend", code));
+vite.on("exit", (code) => onExit("vite", code));
 
 process.stdout.write("[dev:web] backend + vite starting. Open the URL vite prints below.\n");

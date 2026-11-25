@@ -7,6 +7,8 @@ import {
   rangeStats,
   reportSpan,
   shiftDay,
+  standouts,
+  usualDone,
   yearWeeks,
 } from "./goalReport";
 import type { SharedSettings } from "@/platform/sharedSettings";
@@ -56,4 +58,38 @@ test("goals.report-keys: a month or year away keeps the day of the month, within
   const span = { first: "2026-10-03", today: "2026-11-15" };
   expect(clampDay("2026-12-15", span)).toBe("2026-11-15");
   expect(clampDay("2026-09-15", span)).toBe("2026-10-03");
+});
+
+test("goals.report-standout: met days well past a usual one stand out, the month's most as its best", () => {
+  const on = (month: number, day: number) => ({
+    category: { slug: "app" },
+    closedAt: new Date(2026, month, day, 10).toISOString(),
+  });
+  const times = (count: number, task: ReturnType<typeof on>) =>
+    Array.from({ length: count }, () => task);
+  // A usual day is 4, from 2, 4 and 6 done in October; 9 done in early September is too long ago.
+  const before = [
+    ...times(9, on(8, 1)),
+    ...times(2, on(9, 5)),
+    ...times(4, on(9, 6)),
+    ...times(6, on(9, 7)),
+  ];
+  expect(usualDone(settings, before, "2026-11-15")).toBe(4);
+  expect(usualDone(settings, [], "2026-11-15")).toBe(0);
+  // Six done is half again of 4; two past the target of 2 would be only 4.
+  const done = [...before, ...times(5, app(10)), ...times(6, app(11)), ...times(7, app(12))];
+  const span = reportSpan(settings, done, new Date(2026, 10, 15, 12));
+  const judged = judgeDays(settings, done, monthWeeks(settings, "2026-11-15").flat(), span);
+  expect(standouts(judged, 4, "2026-11")).toEqual(
+    new Map([
+      ["2026-11-11", false],
+      ["2026-11-12", true],
+    ]),
+  );
+  // A small usual day still asks for two past the target.
+  expect([...standouts(judged, 1, "2026-11").keys()]).toEqual([
+    "2026-11-10",
+    "2026-11-11",
+    "2026-11-12",
+  ]);
 });

@@ -37,6 +37,9 @@ const STATUS_EXIT_LINGER_MS = 250;
 /** The saved row's sweep or slam and its check or plus (task-save-* in styles.css). */
 const SAVE_FEEDBACK_MS = 1100;
 
+/** A new task saved outside the view shows its category, then slides out (task-list-depart). */
+const DEPART_MS = 900;
+
 const reduceMotion = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function statusExitLinger(): number {
@@ -103,6 +106,7 @@ export function useWorkspaceActions({
   const historyBusyRef = useRef(false);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
   const [savedTask, setSavedTask] = useState<SavedTask | null>(null);
+  const [departingTask, setDepartingTask] = useState<TaskView | null>(null);
   const { exitingTaskIds, exitRows, stopRowExits } = useRowExits(
     updateVisibleTasks,
     holdRevisionCheck,
@@ -115,13 +119,22 @@ export function useWorkspaceActions({
     cancelFlights(taskIds);
   }
 
+  function reportEditFailure(task: TaskView, caught: unknown): void {
+    setAnnouncement(
+      caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
+        ? `${task.title} changed elsewhere. Refresh and try again.`
+        : caught instanceof Error
+          ? caught.message
+          : String(caught),
+    );
+    void refreshTasks();
+  }
+
   async function pickerRemoveBlocker(blockerId: string): Promise<void> {
     if (!picker) return;
     const { subject } = picker;
     const current = tasks.find((task) => task.id === subject.id) ?? subject;
-    const blocker = tasks.find((task) => task.id === blockerId);
-    const subjectTitle = current.title;
-    const blockerTitle = blocker ? blocker.title : "blocker";
+    const blockerTitle = tasks.find((task) => task.id === blockerId)?.title ?? "blocker";
     closePicker();
     try {
       const result = await removeDependency(current.id, blockerId, current.version, {
@@ -129,16 +142,9 @@ export function useWorkspaceActions({
       });
       updateVisibleTask(result.task);
       recordOperationUndo(result.operationId, [current], [result.task]);
-      setAnnouncement(`${subjectTitle} is no longer blocked by ${blockerTitle}`);
+      setAnnouncement(`${current.title} is no longer blocked by ${blockerTitle}`);
     } catch (caught) {
-      setAnnouncement(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${current.title} changed elsewhere. Refresh and try again.`
-          : caught instanceof Error
-            ? caught.message
-            : String(caught),
-      );
-      void refreshTasks();
+      reportEditFailure(current, caught);
     }
   }
 
@@ -146,7 +152,6 @@ export function useWorkspaceActions({
     if (!picker) return;
     const { subject } = picker;
     const current = tasks.find((task) => task.id === subject.id) ?? subject;
-    const subjectTitle = current.title;
     closePicker();
     try {
       const result = await moveTask(current.id, null, current.version, {
@@ -157,16 +162,9 @@ export function useWorkspaceActions({
       updateVisibleTask(result.task);
       recordOperationUndo(result.operationId, [current], [result.task]);
       if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
-      setAnnouncement(`${subjectTitle} is now a top-level task`);
+      setAnnouncement(`${current.title} is now a top-level task`);
     } catch (caught) {
-      setAnnouncement(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${current.title} changed elsewhere. Refresh and try again.`
-          : caught instanceof Error
-            ? caught.message
-            : String(caught),
-      );
-      void refreshTasks();
+      reportEditFailure(current, caught);
     }
   }
 
@@ -190,28 +188,18 @@ export function useWorkspaceActions({
       updateVisibleTask(result.task);
       recordOperationUndo(result.operationId, [current], [result.task]);
       if (refreshManualOrder) void refreshTasks(0).finally(finishIdentityPreservingRefresh);
-      const subjectTitle = current.title;
-      const targetTitle = target.title;
       setAnnouncement(
         mode === "blocker"
-          ? `${subjectTitle} is now blocked by ${targetTitle}`
-          : `${subjectTitle} moved under ${targetTitle}`,
+          ? `${current.title} is now blocked by ${target.title}`
+          : `${current.title} moved under ${target.title}`,
       );
     } catch (caught) {
-      setAnnouncement(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${current.title} changed elsewhere. Refresh and try again.`
-          : caught instanceof Error
-            ? caught.message
-            : String(caught),
-      );
-      void refreshTasks();
+      reportEditFailure(current, caught);
     }
   }
 
   async function pauseTaskFromPalette(task: TaskView): Promise<void> {
     const current = tasks.find((candidate) => candidate.id === task.id) ?? task;
-    const wasActive = taskListRef.current?.getActiveTask()?.id === current.id;
     closeHelp();
     if (current.status === "done" || current.status === "canceled") {
       setAnnouncement(
@@ -226,19 +214,12 @@ export function useWorkspaceActions({
       });
       updateVisibleTask(result.task);
       recordOperationUndo(result.operationId, [current], [result.task]);
-      if (result.changed !== false) handleStatusChanged(current, result.task, wasActive);
+      if (result.changed !== false) handleStatusChanged(current, result.task);
       setAnnouncement(
         `${current.title}: ${result.task.status === "paused" ? "Paused" : "In progress"}`,
       );
     } catch (caught) {
-      setAnnouncement(
-        caught instanceof EditorError && caught.code === "STALE_TASK_VERSION"
-          ? `${current.title} changed elsewhere. Refresh and try again.`
-          : caught instanceof Error
-            ? caught.message
-            : String(caught),
-      );
-      void refreshTasks();
+      reportEditFailure(current, caught);
     }
   }
 
@@ -367,10 +348,7 @@ export function useWorkspaceActions({
         else history.completeUndo(entry.operationId, next);
         showHistory(history);
       } else setStatusUndo(null);
-      const label =
-        restored.length === 1
-          ? (taskStatusMeta[restored[0].status]?.label ?? restored[0].status)
-          : null;
+      const label = restored.length === 1 ? taskStatusMeta[restored[0].status].label : null;
       const verb = direction === "redo" ? "Redid" : "Undid";
       const message =
         entry.createdTaskIds.length > 0
@@ -464,6 +442,12 @@ export function useWorkspaceActions({
     return () => window.clearTimeout(timeout);
   }, [savedTask]);
 
+  useEffect(() => {
+    if (departingTask === null) return;
+    const timeout = window.setTimeout(() => setDepartingTask(null), DEPART_MS);
+    return () => window.clearTimeout(timeout);
+  }, [departingTask]);
+
   function showOptimisticCreate(draft: TaskCreateDraft): void {
     const literal = parseShorthand(draft.title);
     const now = new Date().toISOString();
@@ -479,6 +463,7 @@ export function useWorkspaceActions({
       tags: literal.tags.map((slug) => ({ slug, label: slug })),
       due: literal.due,
       effort: DEFAULT_EFFORT,
+      queue: null,
       parentId: draft.parentId ?? null,
       dependencyIds: [],
       attachments: draft.attachments,
@@ -497,12 +482,16 @@ export function useWorkspaceActions({
     const creating = composerBeforeSave?.mode === "create";
     const previous = composerBeforeSave?.mode === "edit" ? [composerBeforeSave.task] : [];
     const visible = isCurrentViewMatch(task);
-    if (visible) setSavedTask({ id: task.id, kind: creating ? "created" : "updated" });
+    // Saving an edit that changed nothing must not look like it changed something.
+    if (visible && result.changed !== false)
+      setSavedTask({ id: task.id, kind: creating ? "created" : "updated" });
     if (creating) {
       setOptimisticCreate(null);
       if (visible) {
         updateVisibleTasks([task]);
         setNewTaskId(task.id);
+      } else {
+        setDepartingTask(task);
       }
     } else if (visible) {
       setTasks((previous) =>
@@ -542,7 +531,7 @@ export function useWorkspaceActions({
     );
   }
 
-  function handleStatusChanged(previous: TaskView, current: TaskView, _wasActive: boolean): void {
+  function handleStatusChanged(previous: TaskView, current: TaskView): void {
     const nextTasks = visibleTasksAfterUpdate([current]);
     const movedOutOfView =
       taskIsInCurrentView(previous) && !taskIsInCurrentView(current, nextTasks);
@@ -550,11 +539,7 @@ export function useWorkspaceActions({
     if (previous.status === "canceled" && current.status !== "canceled") void refreshTasks(0, true);
   }
 
-  function handleStatusBatchChanged(
-    previous: TaskView[],
-    current: TaskView[],
-    _wasActiveTaskId: string | null,
-  ): void {
+  function handleStatusBatchChanged(previous: TaskView[], current: TaskView[]): void {
     const nextTasks = visibleTasksAfterUpdate(current);
     const previousById = new Map(previous.map((task) => [task.id, task]));
     const movedOutOfView = current.filter((task) => {
@@ -630,6 +615,7 @@ export function useWorkspaceActions({
     historyBusy,
     newTaskId,
     savedTask,
+    departingTask,
     exitingTaskIds,
     landingTaskIds,
     pickerRemoveBlocker,

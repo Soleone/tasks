@@ -20,6 +20,7 @@ const VALUE_FLAGS = new Set([
   "description",
   "priority",
   "effort",
+  "queue",
   "parent",
   "category",
   "tag",
@@ -43,6 +44,7 @@ const BOOLEAN_FLAGS = new Set([
   "clear-due",
   "uncategorized",
   "unblocked",
+  "queued",
   "include-ancestors",
 ]);
 const GLOBAL_FLAGS = [
@@ -235,6 +237,7 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
         "sort",
         "direction",
         "unblocked",
+        "queued",
         "include-ancestors",
       ];
       if (flags.has("search") && positionals.length)
@@ -255,6 +258,11 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
       }
       if (positionals.length) args.search = positionals.join(" ");
       if (flags.has("unblocked")) args.unblocked = true;
+      if (flags.has("queued")) {
+        if (flags.has("sort")) usage("--queued lists in queue order; drop --sort");
+        args.queued = true;
+        args.sort = "queue";
+      }
       if (flags.has("include-ancestors")) args.includeAncestors = true;
       break;
     }
@@ -305,9 +313,16 @@ export function parseHumanArgs(argv: string[]): HumanArgs {
         "clear-tags",
         "due",
         "clear-due",
+        "queue",
       ];
       requirePositionals(positionals, 1, verb);
       content(flags, args);
+      if (flags.has("queue")) {
+        const where = value(flags, "queue");
+        if (where !== "first" && where !== "last" && where !== "off")
+          usage("--queue takes first, last or off");
+        args.queue = where === "off" ? null : { [where]: true };
+      }
       if (!Object.keys(args).length) usage("nothing to update");
       args.id = positionals[0];
       break;
@@ -468,7 +483,8 @@ QUERIES
   activity [--task ID] [--limit N]
   list: --status STATUS (repeat/comma), --priority 0..4, --category SLUG,
         --uncategorized, --tag SLUG (repeat), --search TEXT, --unblocked,
-        --limit N, --offset N, --sort created|updated|priority|effort|due|closed|manual,
+        --queued (in queue order), --limit N, --offset N,
+        --sort created|updated|priority|effort|due|closed|queue|manual,
         --direction asc|desc (not manual), --include-ancestors
 
 WRITES
@@ -477,6 +493,7 @@ WRITES
     content flags: --description TEXT, --priority 0..4, --effort 1..5 (3 is normal),
                    --category SLUG, --clear-category, --tag SLUG (repeat), --clear-tags,
                    --due DATE (2026-10-31, today, tmr, fri, 3d, 2w, oct31), --clear-due
+    update also allows --queue first|last|off: into the queue at either end, or out.
     add also allows --parent ID. Shorthand (!fri sets the due date) cannot mix
     classification or due overrides.
   start|pause|complete|reopen|cancel|delete|undo ID

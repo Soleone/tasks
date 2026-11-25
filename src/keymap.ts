@@ -40,6 +40,8 @@ export const BINDINGS = [
   },
   { id: "pick.blocker", label: "Add blocker", group: "Task actions", key: "B" },
   { id: "pick.parent", label: "Move under…", group: "Task actions", key: "M" },
+  { id: "queue.add", label: "Queue or unqueue task", group: "Task actions", key: "Q" },
+  { id: "queue.front", label: "Queue task first", group: "Task actions", key: "Shift+Q" },
   { id: "home.task-context-menu", label: "Open task menu", group: "Task actions", key: "A" },
   { id: "undo.latest", label: "Undo last change", group: "Task actions", key: "Mod+Z" },
   { id: "redo.latest", label: "Redo last change", group: "Task actions", key: "Mod+Shift+Z" },
@@ -52,6 +54,7 @@ export const BINDINGS = [
   { id: "done.lens-window", label: "Look further back", group: "Workspace", key: "Shift+D" },
   { id: "due.lens", label: "Due now", group: "Workspace", key: "!" },
   { id: "agents.lens", label: "Changed by agents", group: "Workspace", key: "Shift+A" },
+  { id: "queue.lens", label: "Work off the queue", group: "Workspace", key: "W" },
   { id: "goals.report", label: "Goal report", group: "Workspace", key: "G" },
   {
     id: "goals.report-range",
@@ -75,8 +78,19 @@ const BINDING_IDS: ReadonlySet<string> = new Set(BINDINGS.map((binding) => bindi
  * Keys that always keep their meaning, so they can't be picked (`keys.fixed`): moving around,
  * the editor, priorities by number, the Menu key and Ctrl+Y for redo.
  */
-const FIXED_KEYS = new Set(["Tab", "Esc", "Enter", "Backspace", "ContextMenu"]);
-const FIXED_WITH_ANY_MODIFIER = new Set(["↑", "↓", "←", "→", "Home", "End", ...FIXED_KEYS]);
+const FIXED_WITH_ANY_MODIFIER = new Set([
+  "↑",
+  "↓",
+  "←",
+  "→",
+  "Home",
+  "End",
+  "Tab",
+  "Esc",
+  "Enter",
+  "Backspace",
+  "ContextMenu",
+]);
 const FIXED_COMBOS = new Set(["0", "1", "2", "3", "4", "Mod+Y"]);
 
 const listeners = new Set<() => void>();
@@ -146,8 +160,7 @@ export function setKey(id: BindingId, key: string | null): void {
 
 /** Gives `id` the key `other` had, and `other` the key `id` had (`keys.conflict`). */
 export function swapKeys(id: BindingId, key: string, other: BindingId): void {
-  const previous = keyFor(id);
-  setKey(other, previous);
+  setKey(other, keyFor(id));
   setKey(id, key);
 }
 

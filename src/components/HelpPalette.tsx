@@ -7,6 +7,7 @@ import {
   Circle,
   CircleCheck,
   CircleHelp,
+  Trophy,
   Copy,
   CirclePause,
   CornerDownRight,
@@ -35,9 +36,11 @@ import {
   Tags,
   Trash2,
   Undo2,
+  ListEnd,
   type LucideIcon,
   Menu,
 } from "lucide-react";
+import type { ReportRange } from "@/goalReport";
 import type { TaskView } from "./taskView";
 import {
   CommandEmpty,
@@ -74,10 +77,15 @@ type HelpEntry = {
     | "toggle-done-lens"
     | "toggle-due-lens"
     | "toggle-agents-lens"
+    | "toggle-queue-lens"
     | "widen-done-lens"
     | "open-goal-report"
+    | "open-goal-report-year"
+    | "open-learn"
     | "add-blocker"
     | "move-under"
+    | "queue-task"
+    | "queue-first"
     | "pause-task"
     | "new-task"
     | "new-child-task"
@@ -350,6 +358,20 @@ function helpGroups(): { heading: string; entries: HelpEntry[] }[] {
           keywords: "m move under parent child hierarchy subtask",
         },
         {
+          label: "Queue or unqueue task",
+          icon: ListEnd,
+          keys: caps("queue.add"),
+          action: "queue-task",
+          keywords: "q queue add remove take out line up next order",
+        },
+        {
+          label: "Queue task first",
+          icon: ListEnd,
+          keys: caps("queue.front"),
+          action: "queue-first",
+          keywords: "shift q queue front first top next line up",
+        },
+        {
           label: "Open task menu",
           hint: "Or the Menu key",
           icon: Menu,
@@ -440,6 +462,14 @@ function helpGroups(): { heading: string; entries: HelpEntry[] }[] {
           keywords: "agent claude cli activity history who changed bot ai",
         },
         {
+          label: "Work off the queue",
+          hint: "The tasks you lined up, in your order",
+          action: "toggle-queue-lens",
+          icon: ListEnd,
+          keys: caps("queue.lens"),
+          keywords: "queue next up line order focus work list",
+        },
+        {
           label: "Look further back",
           hint: "Done yesterday, then the last 7 days, then 30",
           action: "widen-done-lens",
@@ -454,6 +484,22 @@ function helpGroups(): { heading: string; entries: HelpEntry[] }[] {
           icon: CalendarRange,
           keys: caps("goals.report"),
           keywords: "goals report calendar month year streak history days met",
+        },
+        {
+          label: "Goal report by year",
+          hint: "Every day of the year against your goals",
+          action: "open-goal-report-year",
+          icon: CalendarRange,
+          keys: caps("goals.report-range"),
+          keywords: "goals report calendar year annual streak history days met",
+        },
+        {
+          label: "Quests and learned keys",
+          hint: "Every quest and the keys you've picked up",
+          action: "open-learn",
+          icon: Trophy,
+          keys: caps("learn.panel"),
+          keywords: "quests learn tutorial log progress keys learned",
         },
         {
           label: "Toggle this palette",
@@ -518,6 +564,7 @@ export function HelpPalette({
   onToggleLens,
   onWidenDoneLens,
   onOpenGoalReport,
+  onOpenLearn,
   onCreate,
   onLogDone,
   onCreateChild,
@@ -529,6 +576,7 @@ export function HelpPalette({
   activeTask,
   onAddBlocker,
   onMoveUnder,
+  onQueueTask,
   onPauseTask,
   onCopyTask,
   onCopyImage,
@@ -544,25 +592,27 @@ export function HelpPalette({
   onOpenThemes: () => void;
   onToggleLens: (kind: ListLens["kind"]) => void;
   onWidenDoneLens: () => void;
-  onOpenGoalReport: () => void;
+  onOpenGoalReport: (range: ReportRange) => void;
+  onOpenLearn: () => void;
   onCreate: () => void;
   onLogDone: () => void;
-  onCreateChild?: (task: TaskView) => void;
+  onCreateChild: (task: TaskView) => void;
   onOpenCategoryPicker: () => void;
   onOpenStatusMenu: () => void;
   onOpenPriorityMenu: () => void;
   onOpenTagPicker: () => void;
   onOpenSearch: () => void;
   activeTask?: TaskView;
-  onAddBlocker?: (task: TaskView) => void;
-  onMoveUnder?: (task: TaskView) => void;
-  onPauseTask?: (task: TaskView) => void;
-  onCopyTask?: (task: TaskView) => void;
-  onCopyImage?: (task: TaskView) => void;
-  canUndoStatus?: boolean;
-  onUndoStatus?: () => void;
-  canRedo?: boolean;
-  onRedo?: () => void;
+  onAddBlocker: (task: TaskView) => void;
+  onMoveUnder: (task: TaskView) => void;
+  onQueueTask: (task: TaskView, front: boolean) => void;
+  onPauseTask: (task: TaskView) => void;
+  onCopyTask: (task: TaskView) => void;
+  onCopyImage: (task: TaskView) => void;
+  canUndoStatus: boolean;
+  onUndoStatus: () => void;
+  canRedo: boolean;
+  onRedo: () => void;
 }): ReactElement {
   const searchInput = useRef<HTMLInputElement>(null);
   const questEntry = useQuestEntry();
@@ -574,21 +624,26 @@ export function HelpPalette({
     "toggle-done-lens": () => onToggleLens("done"),
     "toggle-due-lens": () => onToggleLens("due"),
     "toggle-agents-lens": () => onToggleLens("agents"),
+    "toggle-queue-lens": () => onToggleLens("queue"),
     "widen-done-lens": onWidenDoneLens,
-    "open-goal-report": onOpenGoalReport,
+    "open-goal-report": () => onOpenGoalReport("month"),
+    "open-goal-report-year": () => onOpenGoalReport("year"),
+    "open-learn": onOpenLearn,
     "new-task": onCreate,
     "log-done-task": onLogDone,
-    "new-child-task": activeTask && onCreateChild ? () => onCreateChild(activeTask) : undefined,
+    "new-child-task": activeTask ? () => onCreateChild(activeTask) : undefined,
     "filter-category": onOpenCategoryPicker,
     "filter-status": onOpenStatusMenu,
     "filter-priority": onOpenPriorityMenu,
     "filter-tags": onOpenTagPicker,
     "filter-search": onOpenSearch,
-    "copy-task": activeTask && onCopyTask ? () => onCopyTask(activeTask) : undefined,
-    "copy-image": activeTask && onCopyImage ? () => onCopyImage(activeTask) : undefined,
-    "add-blocker": activeTask && onAddBlocker ? () => onAddBlocker(activeTask) : undefined,
-    "pause-task": activeTask && onPauseTask ? () => onPauseTask(activeTask) : undefined,
-    "move-under": activeTask && onMoveUnder ? () => onMoveUnder(activeTask) : undefined,
+    "copy-task": activeTask ? () => onCopyTask(activeTask) : undefined,
+    "copy-image": activeTask ? () => onCopyImage(activeTask) : undefined,
+    "add-blocker": activeTask ? () => onAddBlocker(activeTask) : undefined,
+    "pause-task": activeTask ? () => onPauseTask(activeTask) : undefined,
+    "move-under": activeTask ? () => onMoveUnder(activeTask) : undefined,
+    "queue-task": activeTask ? () => onQueueTask(activeTask, false) : undefined,
+    "queue-first": activeTask ? () => onQueueTask(activeTask, true) : undefined,
     "undo-status": canUndoStatus ? onUndoStatus : undefined,
     redo: canRedo ? onRedo : undefined,
   };

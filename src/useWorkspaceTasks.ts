@@ -9,7 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { ClassificationToken } from "@/backend/taskText";
-import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
+import { compareQueue, type TaskPriority, type TaskStatus } from "@/backend/taskModel";
 import type { TaskListHandle } from "@/components/TaskList";
 import type { ClassificationOption, TaskView } from "@/components/taskView";
 import { contextTaskIds, taskGroupOrder } from "@/components/taskTree";
@@ -109,6 +109,7 @@ export function useWorkspaceTasks({
         const exact = exactStatusRef.current;
         const { statuses: lensStatuses, ...lensBounds } =
           lensRef.current === null ? { statuses: undefined } : lensFilter(lensRef.current);
+        const queueLens = lensRef.current?.kind === "queue";
         const statuses =
           lensStatuses ?? (exact !== null ? [exact] : presetStatuses(statusPresetRef.current));
         // Every category, not just this view's, so the rows' category column keeps its width and
@@ -124,15 +125,18 @@ export function useWorkspaceTasks({
               unblocked: showUnblockedRef.current,
               category: categoryFilterRef.current ?? undefined,
               priority: priorityFilterRef.current ?? undefined,
-              tags: [...tagFilterRef.current],
+              tags: tagFilterRef.current,
               search: searchQueryRef.current,
               // A goal lens's category replaces the view's.
               ...lensBounds,
               limit,
-              sort: sortFieldRef.current,
-              direction: sortDirectionRef.current,
-              includeAncestors: true,
-              includeDescendants: true,
+              // In the queue, manual order is the queue's own, and like manual order it never reverses.
+              ...(queueLens && sortFieldRef.current === "manual"
+                ? { sort: "queue", direction: "asc" }
+                : { sort: sortFieldRef.current, direction: sortDirectionRef.current }),
+              // The queue is one line, so its subtasks come without their trees.
+              includeAncestors: !queueLens,
+              includeDescendants: !queueLens,
             },
           ],
           !offset,
@@ -160,49 +164,47 @@ export function useWorkspaceTasks({
         if (!offset && !restoredMetadataRef.current) {
           restoredMetadataRef.current = true;
           const categorySlug = categoryFilterRef.current;
-          const tagSlugs = [...tagFilterRef.current];
-          if (categorySlug !== null || tagSlugs.length > 0) {
-            const loadedTasks = [...result.tasks, ...result.contextTasks];
-            if (categorySlug !== null) {
-              const category = loadedTasks.find(
-                (task) => task.category?.slug === categorySlug,
-              )?.category;
-              const enriched: ClassificationToken = category
-                ? { slug: category.slug, label: category.label }
-                : { slug: categorySlug, label: categorySlug };
-              setCategoryFilter((previous) =>
-                previous?.slug === enriched.slug && previous.label === enriched.label
-                  ? previous
-                  : enriched,
-              );
-            }
-            if (tagSlugs.length > 0) {
-              const tags = new Map(
-                loadedTasks.flatMap((task) => task.tags).map((tag) => [tag.slug, tag]),
-              );
-              const enriched = tagSlugs.map((slug) => {
-                const tag = tags.get(slug);
-                return tag
-                  ? {
-                      ...tag,
-                      taskCount: loadedTasks.filter((task) =>
-                        task.tags.some((entry) => entry.slug === tag.slug),
-                      ).length,
-                    }
-                  : { slug, label: slug, taskCount: 0 };
-              });
-              setTagFilter((previous) => {
-                const unchanged =
-                  previous.length === enriched.length &&
-                  previous.every(
-                    (tag, index) =>
-                      tag.slug === enriched[index].slug &&
-                      tag.label === enriched[index].label &&
-                      tag.taskCount === enriched[index].taskCount,
-                  );
-                return unchanged ? previous : enriched;
-              });
-            }
+          const tagSlugs = tagFilterRef.current;
+          const loadedTasks = [...result.tasks, ...result.contextTasks];
+          if (categorySlug !== null) {
+            const category = loadedTasks.find(
+              (task) => task.category?.slug === categorySlug,
+            )?.category;
+            const enriched: ClassificationToken = category
+              ? { slug: category.slug, label: category.label }
+              : { slug: categorySlug, label: categorySlug };
+            setCategoryFilter((previous) =>
+              previous?.slug === enriched.slug && previous.label === enriched.label
+                ? previous
+                : enriched,
+            );
+          }
+          if (tagSlugs.length > 0) {
+            const tags = new Map(
+              loadedTasks.flatMap((task) => task.tags).map((tag) => [tag.slug, tag]),
+            );
+            const enriched = tagSlugs.map((slug) => {
+              const tag = tags.get(slug);
+              return tag
+                ? {
+                    ...tag,
+                    taskCount: loadedTasks.filter((task) =>
+                      task.tags.some((entry) => entry.slug === tag.slug),
+                    ).length,
+                  }
+                : { slug, label: slug, taskCount: 0 };
+            });
+            setTagFilter((previous) => {
+              const unchanged =
+                previous.length === enriched.length &&
+                previous.every(
+                  (tag, index) =>
+                    tag.slug === enriched[index].slug &&
+                    tag.label === enriched[index].label &&
+                    tag.taskCount === enriched[index].taskCount,
+                );
+              return unchanged ? previous : enriched;
+            });
           }
         }
         setTotal(result.total);
@@ -365,16 +367,11 @@ export function useWorkspaceTasks({
     };
   }, [refreshTasks, invalidateQueries]);
 
-  function syncContextTasks(
-    nextTasks: TaskView[],
-    candidates?: TaskView | readonly TaskView[],
-  ): void {
-    const candidateList =
-      candidates === undefined ? [] : Array.isArray(candidates) ? candidates : [candidates];
+  function syncContextTasks(nextTasks: TaskView[], candidates: readonly TaskView[] = []): void {
     setContextTasks((previous) => {
       const visibleIds = new Set(nextTasks.map((entry) => entry.id));
       const byId = new Map(
-        [...previous, ...nextTasks, ...candidateList].map((entry) => [entry.id, entry]),
+        [...previous, ...nextTasks, ...candidates].map((entry) => [entry.id, entry]),
       );
       const requiredContextIds = contextTaskIds(nextTasks, [...byId.values()]);
       return [...byId.values()].filter(
@@ -383,14 +380,9 @@ export function useWorkspaceTasks({
     });
   }
 
-  function removeVisibleTasks(taskIds: string[]): void {
-    const tasks = tasksRef.current;
-    const contextTasks = contextTasksRef.current;
-    const ids = new Set(taskIds);
-    const nextTasks = tasks.filter((task) => !ids.has(task.id));
-    const removed = tasks.length - nextTasks.length;
-    setContextTasks((previous) => previous.filter((task) => !ids.has(task.id)));
-    const currentGroupOrder = taskGroupOrder(tasks, contextTasks);
+  // Keeps the groups that remain in the order they showed before rows left them.
+  function freezeContextOrder(): void {
+    const currentGroupOrder = taskGroupOrder(tasksRef.current, contextTasksRef.current);
     setContextOrder((previous) => {
       const next = new Map(previous);
       let nextOrder = Math.max(-1, ...next.values()) + 1;
@@ -401,6 +393,15 @@ export function useWorkspaceTasks({
       }
       return next;
     });
+  }
+
+  function removeVisibleTasks(taskIds: string[]): void {
+    const tasks = tasksRef.current;
+    const ids = new Set(taskIds);
+    const nextTasks = tasks.filter((task) => !ids.has(task.id));
+    const removed = tasks.length - nextTasks.length;
+    setContextTasks((previous) => previous.filter((task) => !ids.has(task.id)));
+    freezeContextOrder();
     setTasks(nextTasks);
     setTotal((previous) => Math.max(previous - removed, 0));
     syncContextTasks(nextTasks);
@@ -446,19 +447,10 @@ export function useWorkspaceTasks({
         totalDelta -= 1;
       }
     }
-    if (removedTask) {
-      const currentGroupOrder = taskGroupOrder(tasks, contextTasks);
-      setContextOrder((previous) => {
-        const next = new Map(previous);
-        let nextOrder = Math.max(-1, ...next.values()) + 1;
-        for (const rootId of currentGroupOrder.keys()) {
-          if (next.has(rootId)) continue;
-          next.set(rootId, nextOrder);
-          nextOrder += 1;
-        }
-        return next;
-      });
-    }
+    if (removedTask) freezeContextOrder();
+    // A move in the queue changes no membership, so the queue's order is kept here.
+    if (lens?.kind === "queue" && sortField === "manual")
+      nextTasks = [...nextTasks].sort(compareQueue);
     setTasks(nextTasks);
     if (totalDelta !== 0) setTotal((previous) => Math.max(previous + totalDelta, 0));
     syncContextTasks(nextTasks, updatedTasks);

@@ -29,7 +29,7 @@ export function dayMet(goals: GoalsToday): boolean {
 /** A day's share of its goals, from nothing to all met. */
 export function dayShare(goals: GoalsToday): number {
   const { filled, target } = dayProgress(goals);
-  return Math.min(1, filled / target);
+  return filled / target;
 }
 
 /** The days the report can show: from the first day anything was done, up to today. */
@@ -122,11 +122,11 @@ export function currentStreak(
 
 export type RangeStats = { met: number; days: number; done: number; best: number };
 
-/** The shown days up to today: how many were met, out of how many, what got done and the longest streak. */
+/** The shown days, in order, up to today: how many were met, out of how many, what got done and the longest streak. */
 export function rangeStats(judged: ReadonlyMap<string, GoalsToday | null>): RangeStats {
   const stats = { met: 0, days: 0, done: 0, best: 0 };
   let run = 0;
-  for (const [, goals] of [...judged].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const goals of judged.values()) {
     if (goals === null) {
       run = 0;
       continue;
@@ -138,6 +138,50 @@ export function rangeStats(judged: ReadonlyMap<string, GoalsToday | null>): Rang
     stats.best = Math.max(stats.best, run);
   }
   return stats;
+}
+
+/** How far back a usual day looks (`goals.report-standout`). */
+const USUAL_DAYS = 56;
+
+/** What a usual day gets done lately: the median of the eight weeks before today, over days that saw anything done. */
+export function usualDone(
+  settings: SharedSettings,
+  done: readonly DoneTask[],
+  today: string,
+): number {
+  const from = addDays(today, -USUAL_DAYS);
+  const counts = new Map<string, number>();
+  for (const task of done) {
+    if (task.closedAt === null) continue;
+    const day = dayOf(settings, new Date(task.closedAt));
+    if (day >= from && day < today) counts.set(day, (counts.get(day) ?? 0) + 1);
+  }
+  const sorted = [...counts.values()].sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  const middle = sorted.length >> 1;
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+/**
+ * The shown days well past a usual one (`goals.report-standout`): met, with half as much again
+ * done and at least two past the daily target. Each is marked best when no day of `month` beat it.
+ */
+export function standouts(
+  judged: ReadonlyMap<string, GoalsToday | null>,
+  usual: number,
+  month: string,
+): Map<string, boolean> {
+  const days = [...judged].filter(
+    (entry): entry is [string, GoalsToday] =>
+      entry[1] !== null &&
+      dayMet(entry[1]) &&
+      entry[1].done >= Math.max(Math.ceil(usual * 1.5), dayProgress(entry[1]).target + 2),
+  );
+  const top = Math.max(
+    0,
+    ...days.filter(([day]) => day.startsWith(month)).map(([, goals]) => goals.done),
+  );
+  return new Map(days.map(([day, goals]) => [day, day.startsWith(month) && goals.done === top]));
 }
 
 /** The same day of the month a month or year away, on the month's last day when it has fewer. */

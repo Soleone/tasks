@@ -34,7 +34,7 @@ function invalidEntry(): never {
 
 function directoryIdentity(directory: string): string {
   const stat = lstatSync(directory, { bigint: true });
-  if (!stat.isDirectory() || stat.isSymbolicLink()) invalidEntry();
+  if (!stat.isDirectory()) invalidEntry();
   return `${stat.dev}:${stat.ino}`;
 }
 

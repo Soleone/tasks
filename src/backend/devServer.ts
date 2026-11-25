@@ -1,6 +1,7 @@
 import http from "node:http";
 import { randomUUID } from "node:crypto";
-import type { AddressInfo } from "node:net";
+import { readFile } from "node:fs/promises";
+import { isIP, type AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { trustRenames } from "./canonicalReader.js";
@@ -10,12 +11,12 @@ import { homeCache, openHome } from "./home.js";
 import { decodeEnvelope, parseRequest, QUERY_COMMANDS } from "./protocol.js";
 
 /**
- * Dev-only HTTP bridge over the same command path as the Tauri sidecar and
- * CLI. It exists so `pnpm dev:web` can iterate on the UI in a plain browser
- * with Vite HMR against a real task folder. Never package or ship this;
- * production desktop traffic stays on the sidecar stdio bridge.
+ * HTTP bridge over the same command path as the Tauri sidecar and CLI. `pnpm dev:web` uses it
+ * to iterate on the UI in a plain browser with Vite HMR; `pnpm serve:web` adds the built UI on
+ * the same port, for a machine without a desktop. Never package it in the apps; their traffic
+ * stays on the sidecar stdio bridge.
  */
-export const DEFAULT_DEV_BACKEND_PORT = 5174;
+const DEFAULT_DEV_BACKEND_PORT = 5174;
 // Attachments can be 10 MiB, which base64 grows to about 13.4 MiB.
 const MAX_BODY_BYTES = 16 * 1024 * 1024;
 const HOME_COMMANDS = [
@@ -26,11 +27,14 @@ const HOME_COMMANDS = [
   "workspace.newHistory",
 ];
 
-export type DevServerOptions = {
+type DevServerOptions = {
   port?: number;
+  /** The address to listen on; loopback unless given. */
   host?: string;
   /** The Tasks home to edit. */
   home?: string;
+  /** A built UI to serve next to the bridge, so the page and bridge share an origin. */
+  webRoot?: string;
 };
 
 type DevSelection = {
@@ -50,7 +54,30 @@ export type DevServer = {
   databasePath: string;
 };
 
-function isAllowedOrigin(origin: string): boolean {
+const LOOPBACK_NAMES = ["localhost", "127.0.0.1", "[::1]"];
+const CONTENT_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".woff2": "font/woff2",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+};
+
+// Any other name could be a stranger's domain pointed at this address (DNS rebinding), whose
+// pages would count as same-origin, so the bridge answers only loopback names and bare IPs.
+function isAllowedHost(host: string | undefined): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(`http://${host}`).hostname;
+  } catch {
+    return false;
+  }
+  return LOOPBACK_NAMES.includes(hostname) || isIP(hostname.replace(/^\[|\]$/g, "")) !== 0;
+}
+
+function isAllowedOrigin(origin: string, host: string | undefined): boolean {
+  if (origin === `http://${host}`) return true;
   let url: URL;
   try {
     url = new URL(origin);
@@ -60,12 +87,7 @@ function isAllowedOrigin(origin: string): boolean {
   if (url.protocol !== "http:") {
     return false;
   }
-  return (
-    url.hostname === "localhost" ||
-    url.hostname === "127.0.0.1" ||
-    url.hostname === "[::1]" ||
-    url.hostname === "::1"
-  );
+  return LOOPBACK_NAMES.includes(url.hostname);
 }
 
 function readBody(request: http.IncomingMessage): Promise<Buffer> {
@@ -104,12 +126,9 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
     profilePath: home.homePath,
     writeCommands: [...EDITOR_COMMANDS],
   };
-  const host = options.host ?? "127.0.0.1";
-  const port =
-    options.port ?? Number(process.env.TASKS_DEV_BACKEND_PORT ?? DEFAULT_DEV_BACKEND_PORT);
 
   const server = http.createServer((request, response) => {
-    void handleRequest(request, response, selection).catch(() => {
+    void handleRequest(request, response, selection, options.webRoot).catch(() => {
       if (response.headersSent) {
         response.destroy();
         return;
@@ -128,7 +147,7 @@ export function startDevServer(options: DevServerOptions = {}): Promise<DevServe
 
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, host, () => {
+    server.listen(options.port ?? DEFAULT_DEV_BACKEND_PORT, options.host ?? "127.0.0.1", () => {
       const address = server.address() as AddressInfo;
       resolve({
         server,
@@ -144,9 +163,20 @@ async function handleRequest(
   request: http.IncomingMessage,
   response: http.ServerResponse,
   selection: DevSelection,
+  webRoot: string | undefined,
 ): Promise<void> {
-  const origin = request.headers.origin;
-  if (origin !== undefined && !isAllowedOrigin(origin)) {
+  const { host, origin } = request.headers;
+  if (!isAllowedHost(host)) {
+    response.writeHead(403, { "content-type": "application/json" });
+    response.end(
+      JSON.stringify({
+        ok: false,
+        error: { code: "FORBIDDEN_HOST", message: "open this by IP address or localhost" },
+      }),
+    );
+    return;
+  }
+  if (origin !== undefined && !isAllowedOrigin(origin, host)) {
     response.writeHead(403, { "content-type": "application/json" });
     response.end(
       JSON.stringify({
@@ -186,6 +216,27 @@ async function handleRequest(
     return;
   }
 
+  if (request.method === "GET" && webRoot !== undefined) {
+    const file = webFile(webRoot, request.url ?? "/");
+    const body =
+      file &&
+      (await readFile(file).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return undefined;
+        throw error;
+      }));
+    if (body) {
+      response.writeHead(200, {
+        "content-type": CONTENT_TYPES[path.extname(file)] ?? "application/octet-stream",
+        // Vite names assets by content hash; the page itself must be fetched fresh.
+        "cache-control": file.endsWith("index.html")
+          ? "no-cache"
+          : "public, max-age=31536000, immutable",
+      });
+      response.end(body);
+      return;
+    }
+  }
+
   response.writeHead(404, { "content-type": "application/json" });
   response.end(
     JSON.stringify({
@@ -193,6 +244,14 @@ async function handleRequest(
       error: { code: "NOT_FOUND", message: "use POST /command or GET /health" },
     }),
   );
+}
+
+/** The page for `/`, or a file under `assets/`; nothing else in the build folder is served. */
+function webFile(webRoot: string, url: string): string | undefined {
+  const pathname = new URL(url, "http://bridge").pathname;
+  if (pathname === "/") return path.join(webRoot, "index.html");
+  if (!/^\/assets\/[\w.-]+$/.test(pathname)) return undefined;
+  return path.join(webRoot, pathname);
 }
 
 function executeDevCommand(
@@ -262,9 +321,15 @@ async function main(): Promise<void> {
   }
   const home = optionValue(args, "--home");
   if (home === undefined || home.startsWith("--")) throw new Error("--home requires PATH");
+  const host = optionValue(args, "--host");
+  const webRoot = optionValue(args, "--web");
 
-  const dev = await startDevServer({ port, home });
-  process.stdout.write(`tasks dev backend at ${dev.url} (db ${dev.databasePath})\n`);
+  const dev = await startDevServer({ port, host, home, webRoot });
+  process.stdout.write(
+    webRoot === undefined
+      ? `tasks dev backend at ${dev.url} (db ${dev.databasePath})\n`
+      : `Tasks for ${home} at ${dev.url}\n`,
+  );
 
   const shutdown = (): void => {
     dev.server.close(() => process.exit(0));

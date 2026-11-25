@@ -58,8 +58,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 
 | Command | Args | Result |
 | --- | --- | --- |
-| `task.create` | `title` or `text`; optional `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments`, `parentId`, `closedAt` | `task`, `changed`, `operationId` |
-| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments` | `task`, `changed`, `operationId` |
+| `task.create` | `title` or `text`; optional `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments`, `meta`, `parentId`, `closedAt` | `task`, `changed`, `operationId` |
+| `task.update` | `id`, `expectedVersion`; optional `title` or `text`, `description`, `priority`, `effort`, `category`, `tags`, `due`, `attachments`, `meta`, `queue` | `task`, `changed`, `operationId` |
 | `task.start` `pause` `complete` `reopen` `cancel` `delete` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.status.undo` | `id`, `expectedVersion` | `task`, `changed`, `operationId` |
 | `task.move` | `id`, `expectedVersion`, `parentId` (or `null`) | `task`, `changed`, `operationId` |
@@ -77,6 +77,8 @@ Every client, the CLI and agents use the same commands. A request is one JSON ob
 | --- | --- |
 | `create.logged` | `task.create` with `closedAt` (a timestamp, not after now) logs a task already done: it is created done at that time. A time in the future fails `INVALID_ARGUMENT` |
 | `create.defaults` | New tasks are open, P2, empty description, no category, tags, parent or dependencies unless given, and first among siblings |
+| `update.meta` | `meta` in `task.update` replaces each namespace it names and keeps the others; a namespace set to `null` is removed. So two programs never overwrite each other's data. Results always include `meta`, `{}` when there is none |
+| `update.queue` | `queue` in `task.update` is a placement like `task.reorder`'s among the other queued tasks (`first`, `last`, `beforeId` or `afterId` a queued task), or `null` to take the task out. Results always include `queue`, `null` when not queued. Queuing a done or canceled task, or an anchor that isn't queued, fails `INVALID_ARGUMENT`. Like `meta`, it leaves `updatedAt` alone |
 | `update.no-graph` | `task.update` can't set status, links, order keys or timestamps |
 | `reorder.one-scope` | All selected tasks and the anchor share one parent, the anchor isn't selected, and selected tasks are in their current order. Otherwise `INVALID_ARGUMENT` |
 | `batch.all-or-nothing` | `transitionMany` and `undoMany` check every item first. One bad item fails the whole batch with no writes |
@@ -118,24 +120,25 @@ Categories and tags are slugs written into each task (`data.no-labels`), so rena
 | `task.get` | `id` | `task` |
 | `task.list` | filters below | `tasks`, `contextTasks`, `total`, `limit`, `offset`, `workspaceRevision` |
 | `task.completions` | none | `completions`: `[{id, closedAt, category}]` for every done task, for the goal report |
-| `category.list` / `tag.list` | none | `[{slug, taskCount}]`, counting tasks that aren't canceled, most recently updated task first, then by slug |
+| `category.list` / `tag.list` | none | `[{slug, taskCount}]` for slugs on tasks that aren't canceled, counting only open and in-progress tasks, most recently updated task first, then by slug |
 | `query.batch` | `queries`: 1 to 8 of `{command, args}`, each `task.get`, `task.list`, `category.list` or `tag.list` | `results`, one per query in order |
 | `activity.list` | optional `taskId`, `limit`, `since`, `from` | `[{operationId, taskId, taskIds, actor, createdAt, command, before, after}]`, newest first, at most 100. `taskIds` names every task the operation touched |
 | `workspace.info` | none | `state`, `schemaVersion`, `commands`, `issues`, `pendingOperationId`, `workspaceRevision` |
 
 | Rule | Then |
 | --- | --- |
-| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `excludeCategories` (none of), `search`, `unblocked`, `closedSince`, `closedBefore`, `dueBefore`, `ids` (any of), `includeAncestors`, `includeDescendants` |
+| `list.filters` | `status` (any of), `tags` (all of), `priority`, `category` or `categoryIsNull`, `excludeCategories` (none of), `search`, `unblocked`, `queued`, `closedSince`, `closedBefore`, `dueBefore`, `ids` (any of), `includeAncestors`, `includeDescendants` |
 | `list.closed-since` | `closedSince` is a stored-format timestamp. It matches done and canceled tasks whose `closedAt` is at or after it; active tasks never match |
 | `list.closed-before` | `closedBefore` is a stored-format timestamp. It matches done and canceled tasks whose `closedAt` is before it; active tasks never match |
 | `list.due-before` | `dueBefore` is a `YYYY-MM-DD` date. It matches tasks due earlier than that day, whatever their status; undated tasks never match |
 | `list.ids` | `ids` is a list of task IDs. Only those tasks match, and IDs that name no task match nothing |
 | `activity.from-cli` | Each client keeps its own history in the home's `local/` folder. `from: "cli"` answers from the CLI's history on this device instead of the caller's own, read-only: a home the CLI never opened answers with nothing and gains no file. `since` is a stored-format timestamp and keeps only what was recorded after it. Changes made on another device are in neither history |
 | `list.search` | Case-insensitive substring over title and description, for every script's letters (`übung` finds `Übung`). Trimmed and capped at 200 UTF-16 units |
-| `list.sort` | `created`, `updated` and `closed` default newest first, `priority` defaults P0 first, `effort` defaults largest first, `due` defaults soonest first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
+| `list.sort` | `created`, `updated` and `closed` default newest first, `priority` defaults P0 first, `effort` defaults largest first, `due` defaults soonest first, `queue` defaults front first, `manual` is tree order and can't be reversed. Ties break by ID bytes |
 | `list.sort-closed` | `closed` orders by `closedAt`. Tasks that were never closed come last in either direction |
 | `list.sort-due` | Tasks without a due date come last in either direction. Tasks due the same day go by priority, P0 first |
 | `list.sort-effort` | Tasks of the same effort go by priority, P0 first |
+| `list.queue` | `queued: true` matches only queued tasks. `sort: "queue"` orders by `queue`, front first by default; tasks not in the queue come last in either direction |
 | `list.paging` | `limit` defaults to 50 and clamps to 1 to 500. `offset` clamps to 0 or more |
 | `list.ancestors` | Filters never detach a child from its tree. Non-matching ancestors come back in `contextTasks` and don't count in `total` |
 | `list.descendants` | `includeDescendants: true` includes ancestors and every descendant of each page task's root in `contextTasks`, excluding tasks already in the page. Unrelated trees stay out. Context doesn't change matching `total`, `limit` or `offset` |

@@ -49,6 +49,18 @@ Confirm the displayed home before querying. Reload requires confirmation again. 
 
 Vite flags go after `--`, for example `-- --port 5199`. The backend defaults to `127.0.0.1:5174`; `TASKS_DEV_BACKEND_PORT` changes its port. `pnpm dev:backend` runs only the bridge. `pnpm dev` runs only Vite; `VITE_DEV_BACKEND_URL` selects a separately started bridge. The development listener and per-process selection token are not a production hosting or filesystem security boundary.
 
+## Serving the web app from a machine without a desktop
+
+On a headless Linux machine, such as a server or container where agents use `tasks-cli`, the app can run in a browser on another device:
+
+```bash
+pnpm serve:web --home PATH --host 0.0.0.0 --port 8080
+```
+
+It builds the backend and the UI, then serves both from one port until stopped; the page opens that home directly and shows changes from `tasks-cli` as they happen. Without `--host` it listens on loopback only, for an SSH tunnel (`ssh -L 8080:127.0.0.1:8080 node`). In a container, publish the port and use `--host 0.0.0.0`.
+
+Open it by IP address (a Tailscale `100.x` address, say) or `localhost`: to keep other websites out through DNS rebinding, it refuses any other host name. There is no login, so anyone who can reach the port can edit the tasks; keep it on a private network or behind the tunnel. To keep it running, start it under the machine's supervisor (a container restart policy, systemd, or `nohup`).
+
 ## Hosted web build
 
 `pnpm build:hosted` builds a static site into `dist/hosted` that needs no server: the real backend runs in a Web Worker (`src/web/backendWorker.ts`) behind the same `JsonLineSession` as the native apps (`src/web/workerBackend.ts`). In that worker, `src/web/nodeShims.ts` swaps the Node modules the backend imports for `src/web/shims/`: memfs for files, sql.js for SQLite. The first visit creates an empty home; the Show example tasks switch at the bottom left (React Bits' Squish Switch, vendored unchanged in `src/components/react-bits/`) creates `src/web/sampleTasks.ts` through the app's session, as the CLI would, and deletes them again. After every request the worker saves the home to IndexedDB, keeping inode numbers, because the cache binding checks them. Everything only the web version has lives in `src/web/`, entered through `src/web/WebWorkspace.tsx`: its components, its own stylesheet (`demo.css`) and the Settings › Data section it hands to `App`. Other builds never load that folder, so keep web-only changes there rather than behind checks in shared code.

@@ -2,8 +2,8 @@ import type { CSSProperties, ReactElement, ReactNode } from "react";
 import { Fragment } from "react";
 import { cn } from "cn";
 import { BindingKbd } from "@/components/variants/kbd";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { isMet, type GoalProgress, type GoalsToday } from "@/goals";
 import type { GoalLens } from "./listLens";
 import { dayMet, dayShare } from "@/goalReport";
@@ -13,7 +13,6 @@ const RADIUS = 10;
 /** The arc's length in its own units, as pathLength. */
 const ARC = 100;
 const CHECK = "m9 12 2 2 4-4";
-/** Open goals beside the count before the rest fold into "+N". */
 /**
  * How many open rings the header has room for as it narrows: four, two on a phone, one on a small
  * phone, none below 360px. Each ring hides below its width; `from` hides a tail from the next step
@@ -27,11 +26,6 @@ const RING_STEPS = [
 const RING_HIDDEN = ["", "max-[389px]:hidden", "max-sm:hidden", "max-sm:hidden"];
 /** Met goals shown as pips on the check before it becomes "✓N". */
 const PIPS_SHOWN = 3;
-
-/** A category goal's stroke: its color, or the theme's category green without one. */
-function strokeOf(goal: GoalProgress): string {
-  return goal.swatch ? "stroke-(--swatch)" : "stroke-classification-category";
-}
 
 function Ring({
   fraction,
@@ -114,13 +108,13 @@ export function Numbers({
     <span
       className={cn(
         "ml-3 inline-flex whitespace-pre tabular-nums",
-        met && check && "text-success-inverse",
+        met && check && "text-success-inverse dark:text-success",
       )}
     >
       {check && <span className="w-[2ch]">{met ? "✓" : ""}</span>}
       <span className="w-(--dw) text-right">{done}</span>
       {/* The goal recedes, so the eye lands on the number you moved. */}
-      <span className="w-[calc(var(--gw)+1ch)] opacity-55">/{target}</span>
+      <span className="w-[calc(var(--gw)+1ch)] opacity-60">/{target}</span>
     </span>
   );
 }
@@ -150,7 +144,7 @@ export function Columns({
 /** A goal's color; everything else is neutral, in the tooltip's ink unless `neutral` says otherwise. */
 export function GoalDot({
   goal,
-  neutral = "bg-background",
+  neutral = "bg-current",
 }: {
   goal: GoalProgress;
   neutral?: string;
@@ -229,11 +223,11 @@ export function DoneTodayTip({
         </Line>
       ))}
       {week && (
-        <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5">
+        <span className="flex items-center justify-between gap-3 border-t border-current/15 pt-1.5">
           This week <WeekDots week={week} />
         </span>
       )}
-      <span className="flex items-center justify-between gap-3 border-t border-background/20 pt-1.5">
+      <span className="flex items-center justify-between gap-3 border-t border-current/15 pt-1.5">
         {lensOn ? "Back to your list" : "Show what's done"} <BindingKbd id="done.lens" />
       </span>
       <span className="flex items-center justify-between gap-3">
@@ -264,11 +258,11 @@ function GoalTip({ goal }: { goal: GoalProgress }): ReactElement {
     >
       <span className="font-medium">{goal.name}</span>
       <Line>
-        <span className="opacity-70">Today</span>
+        <span className="opacity-60">Today</span>
         <Numbers done={goal.done} target={goal.target} />
       </Line>
       <Line>
-        <span className="opacity-70">This week</span>
+        <span className="opacity-60">This week</span>
         <Numbers done={goal.week.done} target={goal.week.count} />
       </Line>
     </Columns>
@@ -371,12 +365,12 @@ export function GoalRings({
   const goals = today.goals.filter(
     (goal) => goal.slug !== null && (categoryFilter === null || goal.slug === categoryFilter),
   );
+  if (goals.length === 0) return null;
   const open = goals.filter((goal) => !isMet(goal));
   const met = goals.filter(isMet);
-  if (goals.length === 0) return null;
   // What follows the rings: "+N" for every goal left out, or the met check when none is.
   const tail = (shown: number, className?: string) => {
-    const folded = Math.max(0, open.length - shown);
+    const folded = open.length - shown;
     if (folded > 0)
       return (
         <Tipped
@@ -413,7 +407,7 @@ export function GoalRings({
           <Ring
             fraction={goal.done / goal.target}
             className="size-3.25"
-            stroke={strokeOf(goal)}
+            stroke={goal.swatch ? "stroke-(--swatch)" : "stroke-classification-category"}
             swatch={goal.swatch}
             strokeWidth={2.8}
             check="met"
@@ -440,9 +434,6 @@ export function goalLens(goal: GoalProgress, today: GoalsToday): GoalLens {
       };
 }
 
-const sameLens = (a: GoalLens | undefined, b: GoalLens): boolean =>
-  JSON.stringify(a) === JSON.stringify(b);
-
 /** The done lens's count line with goals on: each goal's numbers today, a button that narrows to it. */
 export function DoneLensGoals({
   today,
@@ -458,7 +449,7 @@ export function DoneLensGoals({
     <span className="flex flex-wrap items-center gap-1" data-done-lens-goals>
       {today.goals.map((entry) => {
         const lens = goalLens(entry, today);
-        const pressed = sameLens(goal, lens);
+        const pressed = JSON.stringify(goal) === JSON.stringify(lens);
         const button = (
           <button
             key={entry.slug ?? ""}
@@ -490,7 +481,7 @@ export function DoneLensGoals({
             <TooltipContent side="bottom">
               <Columns pairs={[[entry.week.done, entry.week.count]]}>
                 <Line>
-                  <span className="opacity-70">This week</span>
+                  <span className="opacity-60">This week</span>
                   <Numbers done={entry.week.done} target={entry.week.count} />
                 </Line>
               </Columns>

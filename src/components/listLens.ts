@@ -25,6 +25,8 @@ export type ListLens =
       day?: string;
     }
   | { kind: "due" }
+  /** The tasks you lined up to work off next, front first. */
+  | { kind: "queue" }
   /** The tasks agents changed that you haven't looked at yet (useAgentChanges). */
   | { kind: "agents"; taskIds: readonly string[] };
 
@@ -38,6 +40,7 @@ export type LensFilter = {
   closedBefore?: string;
   dueBefore?: string;
   ids?: readonly string[];
+  queued?: true;
   category?: string;
   excludeCategories?: string[];
 };
@@ -69,6 +72,7 @@ export function lensFilter(lens: ListLens, now = new Date()): LensFilter {
   }
   if (lens.kind === "agents")
     return { statuses: ["open", "in_progress", "paused", "done", "canceled"], ids: lens.taskIds };
+  if (lens.kind === "queue") return { statuses: ["open", "in_progress", "paused"], queued: true };
   // Due now is due today or earlier, matching the red dates on rows.
   return { statuses: ["open", "in_progress", "paused"], dueBefore: addDays(localToday(now), 1) };
 }
@@ -85,6 +89,7 @@ export function nextDoneWindow(doneWindow: DoneWindow, backward = false): DoneWi
 export function lensPhrase(lens: ListLens): string {
   if (lens.kind === "due") return "due now";
   if (lens.kind === "agents") return "changed by agents";
+  if (lens.kind === "queue") return "queued";
   if (lens.day !== undefined) return `done on ${formatDueDate(lens.day, localToday())}`;
   if (lens.window === "day") return "done today";
   if (lens.window === "yesterday") return "done yesterday";

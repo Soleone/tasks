@@ -16,6 +16,8 @@ const projection = {
   attachments: [],
   due: null,
   effort: 3,
+  meta: {},
+  queue: null,
   version: 7,
   blockedByIds: [],
 };

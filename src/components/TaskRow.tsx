@@ -1,5 +1,5 @@
 import { Fragment, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
-import { CalendarDays, Check, Folder, ShieldBan } from "lucide-react";
+import { CalendarDays, Check, Folder, ListEnd, ShieldBan } from "lucide-react";
 import { DEFAULT_EFFORT, type TaskEffort } from "@/backend/taskModel";
 import { cn } from "cn";
 import type { ClassificationToken } from "@/backend/taskText";
@@ -25,8 +25,8 @@ import {
 } from "@/components/taskFilters";
 import { modKey } from "@/platform/runtime";
 import { preventFocusSteal } from "@/navigation";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { TaskItemDescription, TaskItemTitle, TaskItemTrailing } from "@/components/variants/item";
 import { useFlashTooltip } from "./useFlashTooltip";
 import { Hinted } from "./Hinted";
@@ -386,6 +386,66 @@ export function DueFact({
   );
 }
 
+/** How a task just came into the queue: `Q` sends it to the back, `Shift+Q` to the front. */
+export type QueueArrival = "back" | "front";
+
+/**
+ * The task's place in the queue, at the row's very end. The column takes room only while the list
+ * shows a queued task. Coming in, the number slides in from the right for the back of the queue or
+ * drops in from above for the front; a place that changes rolls to its new number.
+ */
+function TaskRowQueue({
+  position,
+  column,
+  arrival,
+}: {
+  position: number | undefined;
+  column: boolean;
+  arrival: QueueArrival | undefined;
+}): ReactElement {
+  const [shown, setShown] = useState(position);
+  const [motion, setMotion] = useState<"arrive" | "earlier" | "later" | null>(null);
+  if (shown !== position) {
+    setShown(position);
+    setMotion(
+      position === undefined
+        ? null
+        : shown === undefined
+          ? "arrive"
+          : position < shown
+            ? "earlier"
+            : "later",
+    );
+  }
+  return (
+    <div
+      data-task-queue
+      className={cn(
+        "flex h-[1.375em] shrink-0 items-center justify-end self-start overflow-hidden transition-all duration-200",
+        column ? "w-7 sm:w-10" : "-ml-2.5 w-0",
+      )}
+    >
+      {position !== undefined ? (
+        <span
+          // Remounts on every change, so each one plays its motion once.
+          key={position}
+          ref={motion ? startAfterPaint : undefined}
+          data-queue-arrive={motion === "arrive" ? (arrival ?? "back") : undefined}
+          data-queue-roll={motion === "arrive" ? undefined : (motion ?? undefined)}
+          aria-label={position === 1 ? "Next in the queue" : `Number ${position} in the queue`}
+          className={cn(
+            "inline-flex items-center gap-0.5 font-mono text-xs tabular-nums",
+            position === 1 ? "font-semibold text-primary" : "text-primary/70",
+          )}
+        >
+          <ListEnd aria-hidden="true" className="size-3 max-sm:hidden" />
+          {position}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function TaskRowCategory({
   category,
   onSelectCategory,
@@ -512,7 +572,7 @@ function TaskRowTrailing({
         render={<span data-task-due className="flex" />}
       >
         <span className="sr-only">Due </span>
-        <DueFact label={dueLabel} now={dueNow(task, today)} />
+        <DueFact label={dueLabel} now={daysBetween(today, task.due) <= 0} />
       </Hinted>
     </TaskItemTrailing>
   );
@@ -547,12 +607,6 @@ function taskBlocker(task: TaskView, blockedByLabels?: string[]): ReactElement |
 function rowDueLabel(task: TaskView, today: string): string | null {
   const closed = task.status === "done" || task.status === "canceled";
   return task.due === null || closed ? null : dueSoonLabel(task.due, today);
-}
-
-/** Whether an open task is due today or already late. */
-function dueNow(task: TaskView, today: string): boolean {
-  const closed = task.status === "done" || task.status === "canceled";
-  return task.due !== null && !closed && daysBetween(today, task.due) <= 0;
 }
 
 /**
@@ -664,6 +718,9 @@ export function TaskRow({
   completedClockOnly = false,
   contextOnly = false,
   hiddenCategorySlug,
+  queuePosition,
+  queueColumn = false,
+  queueArrival,
   onSelectCategory,
   onSelectTag,
   onCopyImage,
@@ -684,6 +741,11 @@ export function TaskRow({
   completedClockOnly?: boolean;
   contextOnly?: boolean;
   hiddenCategorySlug?: string | null;
+  /** The task's place in the queue, 1 for the front, or undefined when it isn't queued. */
+  queuePosition?: number;
+  /** Whether the list shows a queued task, so every row keeps the queue column's width. */
+  queueColumn?: boolean;
+  queueArrival?: QueueArrival;
   onSelectCategory?: (category: ClassificationToken) => void;
   onSelectTag?: (tag: ClassificationToken) => void;
   onCopyImage?: (task: TaskView) => void;
@@ -764,6 +826,9 @@ export function TaskRow({
       ) : null}
       {variant === "full" && (category || !hiddenCategorySlug) ? (
         <TaskRowCategory category={category} onSelectCategory={onSelectCategory} />
+      ) : null}
+      {variant === "full" ? (
+        <TaskRowQueue position={queuePosition} column={queueColumn} arrival={queueArrival} />
       ) : null}
     </div>
   );

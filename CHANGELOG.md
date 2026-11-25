@@ -1,5 +1,104 @@
 # Changelog
 
+## [0.8.2](https://github.com/Soleone/tasks/compare/v0.8.1...v0.8.2) (2026-11-25)
+
+### Features
+
+* click [@category](https://github.com/category), [#tags](https://github.com/Soleone/tasks/issues/tags) or !date under a new task's title to start that shorthand ([cc69729](https://github.com/Soleone/tasks/commit/cc69729d1382d73dd0abd79ef53808746abb7470))
+* show a checked circle when logging a task already done ([bb3272a](https://github.com/Soleone/tasks/commit/bb3272a36cb1ca5e56a34f09771392cce611a93e))
+
+### Bug Fixes
+
+* keep the logged task editor from shifting when the date field appears ([9a36ba4](https://github.com/Soleone/tasks/commit/9a36ba4a5c3ea22fae13e45e07d4bbccdba67d89))
+* line up the editor's category with the rows' when the list shows queue numbers ([f3c1893](https://github.com/Soleone/tasks/commit/f3c1893f9c36ffa0bc372883f9c398e5fcbd96e3))
+* list queueing a task in the shortcuts palette ([be31998](https://github.com/Soleone/tasks/commit/be31998f7533f9af38e9262d7d94750c02ae03fc))
+* list the yearly goal report and the quest log in the shortcuts palette ([1f7807e](https://github.com/Soleone/tasks/commit/1f7807e9c8dc08f99345efedd6da85470ddf66aa))
+* Tab from the logged task's when reaches its date field, and only the label underlines ([bfed340](https://github.com/Soleone/tasks/commit/bfed3402a200089ec828470b43d4d7f6f4c6fda9))
+* underline the logged task's when choice on focus instead of ringing it ([293ab25](https://github.com/Soleone/tasks/commit/293ab25220f24dedb2221eb15cde4a4b950b7ac0))
+
+## [0.8.1](https://github.com/Soleone/tasks/compare/v0.8.0...v0.8.1) (2026-11-25)
+
+### Features
+
+* show a new task saved outside the filter before it slides away ([0ee10c7](https://github.com/Soleone/tasks/commit/0ee10c73383646b4b1716b016f8d6dd947d7845c))
+
+## [0.8.0](https://github.com/Soleone/tasks/compare/v0.7.8...v0.8.0) (2026-11-25)
+
+### Features
+
+* line up tasks in a queue and work it off ([e6ba4f0](https://github.com/Soleone/tasks/commit/e6ba4f0d88ca8c01b5f345924be60cce225752f6))
+* queue tasks from the CLI with update --queue and list --queued ([80e46f9](https://github.com/Soleone/tasks/commit/80e46f97c34e518a083666ac1f3c73cb6f891730))
+
+### Bug Fixes
+
+* keep the phone header from overflowing when several counts show ([e096d21](https://github.com/Soleone/tasks/commit/e096d21d71f8cd104176d4f3f5dd5ffbe6059c1e))
+* show the theme picker's hover hints as app tooltips ([778fa4d](https://github.com/Soleone/tasks/commit/778fa4da4529457fa2d01a2e4cb896f3c7ba411d))
+
+## [0.7.8](https://github.com/Soleone/tasks/compare/v0.7.7...v0.7.8) (2026-11-22)
+
+### Features
+
+* Escape in search clears it, Enter keeps it ([3646e8c](https://github.com/Soleone/tasks/commit/3646e8cc3a295527badb93ba85158ae5de33c327))
+* search filters the list as you type ([d6a5e8e](https://github.com/Soleone/tasks/commit/d6a5e8ea51abc44805d3fc030c05905639fdd0df))
+
+### Bug Fixes
+
+* find every task in the move and blocker pickers ([5534d39](https://github.com/Soleone/tasks/commit/5534d39f22e70f92ab1a62710066f4155379ba94))
+
+## [0.7.7](https://github.com/Soleone/tasks/compare/v0.7.6...v0.7.7) (2026-11-22)
+
+### Features
+
+* serve the full app to a browser from a machine without a desktop ([5615743](https://github.com/Soleone/tasks/commit/56157438779adfbd20d1ac10f59ad0785a7aad91))
+
+### Bug Fixes
+
+* **backend:** count active tasks in category and tag lists ([11854a8](https://github.com/Soleone/tasks/commit/11854a80eaee7aa3345c321e6b1d171fc4bb9ffb))
+
+## [0.7.6](https://github.com/Soleone/tasks/compare/v0.7.5...v0.7.6) (2026-11-21)
+
+### Features
+
+* **backend:** keep other programs' data on a task in meta ([323d4d6](https://github.com/Soleone/tasks/commit/323d4d6387d2d5081bcf3ec8eedd2add48199eb7))
+
+## [0.7.5](https://github.com/Soleone/tasks/compare/v0.7.4...v0.7.5) (2026-11-19)
+
+### Features
+
+* **tooltip:** give tooltips a card surface on dark themes ([1f0f0bb](https://github.com/Soleone/tasks/commit/1f0f0bb54a9f36d4e635bc7ba9d89429c376fe93))
+
+## [0.7.4](https://github.com/Soleone/tasks/compare/v0.7.3...v0.7.4) (2026-11-19)
+
+### Features
+
+* **composer:** place description beside key hints under title ([8f1df83](https://github.com/Soleone/tasks/commit/8f1df83263ecf3d304fe6ceaaebb2e8e3fa74681))
+
+## [0.7.3](https://github.com/Soleone/tasks/compare/v0.7.2...v0.7.3) (2026-11-19)
+
+### Features
+
+* **goals:** fly week dots into report from any entry point ([fbcdfb4](https://github.com/Soleone/tasks/commit/fbcdfb4b6b535310400f53502a27afd7c194f10c))
+
+### Bug Fixes
+
+* **edit:** skip the save animation when an edit changed nothing ([7d18b69](https://github.com/Soleone/tasks/commit/7d18b69fc8792ec95792e3dde6d2d694eabded5e))
+* **settings:** size Settings to its sections, not the long Keys list ([ac83627](https://github.com/Soleone/tasks/commit/ac83627694951f6d974cf55425a6ac7e28e49d55))
+
+## [0.7.2](https://github.com/Soleone/tasks/compare/v0.7.1...v0.7.2) (2026-11-19)
+
+### Features
+
+* **goals:** mark standout days in the goal report ([9c5717c](https://github.com/Soleone/tasks/commit/9c5717caee1c31d5d163fd0d45adc8b37b895a0c))
+
+## [0.7.1](https://github.com/Soleone/tasks/compare/v0.7.0...v0.7.1) (2026-11-17)
+
+### Bug Fixes
+
+* explain how to correct activity query arguments ([6db4f01](https://github.com/Soleone/tasks/commit/6db4f015968d113d8bb838dd1dce4501174343e2))
+* explain how to resolve extra task categories and due dates ([ca2a16f](https://github.com/Soleone/tasks/commit/ca2a16f80485f4ac31553e26b415babc00fcf1c4))
+* remove duplicate Tailwind lockfile entries ([5a6eeb2](https://github.com/Soleone/tasks/commit/5a6eeb2017e33cd7a4fdbaa842c2b7eaa2c30884))
+* Tasks opens again after the goal report closed a day, and the home setup screen shows the version and offers updates ([ddef5b1](https://github.com/Soleone/tasks/commit/ddef5b180b04031a59920bad3d82feb1cae271fa))
+
 ## [0.7.0](https://github.com/Soleone/tasks/compare/v0.6.2...v0.7.0) (2026-11-15)
 
 ### Features

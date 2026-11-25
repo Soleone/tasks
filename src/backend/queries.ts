@@ -1,15 +1,17 @@
 import { CommandError } from "./errors.js";
 import { isDueDate } from "./dueDate.js";
 import { assertArgs, isRecord, TASK_LIST_MAX_LIMIT } from "./protocol.js";
-import type { CanonicalTask, TaskEffort } from "./taskModel.js";
+import type { CanonicalTask, TaskEffort, TaskMeta } from "./taskModel.js";
 import { compareTasks, DEFAULT_EFFORT, isTimestamp } from "./taskModel.js";
 import { typedText } from "./shorthand.js";
 import type { QueryAuthority } from "./queryCache.js";
 
-export type TaskProjection = CanonicalTask & {
+export type TaskProjection = Omit<CanonicalTask, "queue"> & {
   attachments: string[];
   due: string | null;
   effort: TaskEffort;
+  meta: TaskMeta;
+  queue: string | null;
   version: number;
   blockedByIds: string[];
 };
@@ -46,6 +48,8 @@ export function projectTasks(tasks: CanonicalTask[], authority: QueryAuthority):
     attachments: task.attachments ?? [],
     due: task.due ?? null,
     effort: task.effort ?? DEFAULT_EFFORT,
+    meta: task.meta ?? {},
+    queue: task.queue ?? null,
     version: authority.versions.get(task.id)!,
     blockedByIds: task.dependencyIds.filter((id) => byId.get(id)!.status !== "canceled"),
   }));
@@ -84,6 +88,7 @@ function listTasks(
     "tags",
     "search",
     "unblocked",
+    "queued",
     "closedSince",
     "closedBefore",
     "dueBefore",
@@ -101,7 +106,13 @@ function listTasks(
     invalidFilter("status");
   const priority = args.priority === undefined ? undefined : queryInteger(args.priority, 2);
   if (priority !== undefined && (priority < 0 || priority > 4)) invalidFilter("priority");
-  for (const field of ["categoryIsNull", "unblocked", "includeAncestors", "includeDescendants"]) {
+  for (const field of [
+    "categoryIsNull",
+    "unblocked",
+    "queued",
+    "includeAncestors",
+    "includeDescendants",
+  ]) {
     if (args[field] !== undefined && typeof args[field] !== "boolean") invalidFilter(field);
   }
   const category = args.category === undefined ? undefined : filterSlug(args.category, "@");
@@ -138,14 +149,14 @@ function listTasks(
   const ids = args.ids === undefined ? undefined : new Set(args.ids as string[]);
   const sort = args.sort === undefined ? "created" : args.sort;
   if (
-    !["created", "updated", "priority", "effort", "due", "closed", "manual"].includes(
+    !["created", "updated", "priority", "effort", "due", "closed", "queue", "manual"].includes(
       sort as string,
     )
   )
     invalidFilter("sort");
   const direction =
     args.direction === undefined
-      ? sort === "priority" || sort === "due"
+      ? sort === "priority" || sort === "due" || sort === "queue"
         ? "asc"
         : "desc"
       : args.direction;
@@ -162,6 +173,7 @@ function listTasks(
       (task.category === null || !excluded?.includes(task.category)) &&
       tags.every((tag) => task.tags.includes(tag)) &&
       (args.unblocked !== true || task.blockedByIds.length === 0) &&
+      (args.queued !== true || task.queue !== null) &&
       (closedSince === undefined || (task.closedAt !== null && task.closedAt >= closedSince)) &&
       (closedBefore === undefined || (task.closedAt !== null && task.closedAt < closedBefore)) &&
       (dueBefore === undefined || (task.due !== null && task.due < dueBefore)) &&
@@ -183,13 +195,19 @@ function listTasks(
           return task.updatedAt;
         case "closed":
           return task.closedAt ?? "";
+        case "queue":
+          return task.queue ?? "";
         default:
           return task.due ?? "";
       }
     };
-    // Undated tasks, and active tasks under the closed sort, stay last in either direction.
+    // Undated, unqueued, and active tasks under the closed sort, stay last in either direction.
     const missing = (task: TaskProjection): boolean =>
-      sort === "due" ? task.due === null : sort === "closed" && task.closedAt === null;
+      sort === "due"
+        ? task.due === null
+        : sort === "queue"
+          ? task.queue === null
+          : sort === "closed" && task.closedAt === null;
     matching.sort((left, right) => {
       if (missing(left) !== missing(right)) return missing(left) ? 1 : -1;
       const a = sortValue(left);
@@ -297,9 +315,10 @@ export function executeQuery(
       command === "category.list" ? (task.category === null ? [] : [task.category]) : task.tags;
     for (const slug of slugs) {
       const entry = usage.get(slug);
-      if (!entry) usage.set(slug, { taskCount: 1, lastUpdatedAt: task.updatedAt });
+      const active = task.status === "open" || task.status === "in_progress" ? 1 : 0;
+      if (!entry) usage.set(slug, { taskCount: active, lastUpdatedAt: task.updatedAt });
       else {
-        entry.taskCount += 1;
+        entry.taskCount += active;
         if (task.updatedAt > entry.lastUpdatedAt) entry.lastUpdatedAt = task.updatedAt;
       }
     }

@@ -23,6 +23,7 @@ Each quest teaches a handful of moves in an order where every step makes sense o
 | Change of plans | Step back, pause, undo and cancel, on a task made to practice on | `C`, `Enter`, `Space`, `Shift+Space`, `P`, `Ctrl/⌘+Z`, `Delete` | |
 | Find your way | Moving around, filters and search | `↑↓`, `Home`/`End`, `F` then a key, `/`, `Escape` | |
 | Shape your list | Child tasks, collapsing, blockers and reordering | `Shift+C`, `Enter`, `←` twice, `→`, `M`, `B`, `Shift+↓`, `Ctrl/⌘+↑↓`, `Ctrl/⌘+Home/End` | long-press, Move under, Blockers |
+| Line it up | Queue what's next, put the urgent one first and work it off | `Q`, `Q` on another task, `Shift+Q`, `W`, `Ctrl/⌘+↑↓`, `W` | long-press, Add to queue, the queue count, the queue count |
 | In detail | Descriptions, images and seeing them in the list | `Enter` on a task, `Tab` to the description, `Ctrl/⌘+V` an image, `Ctrl/⌘+Enter`, `Ctrl/⌘+Shift+C`, `V`, `Shift+V` | |
 | Fast hands | Quicker edits: completing, un-lifting and copying | `Enter` on a task, `Tab` completion, `Tab` then `Backspace` on a pill, `Tab` then `Enter`, `Ctrl/⌘+C` | |
 | Goals | A goal for each day, and a look back at how every day went | `Ctrl/⌘+,` and a goal under Goals, `Escape` then `G`, `Shift+G`, `G` | |

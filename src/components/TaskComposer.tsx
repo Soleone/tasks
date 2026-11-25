@@ -85,6 +85,8 @@ type TaskComposerProps = {
   categories: ClassificationOption[];
   /** Holds the category in the rows' column; off when the rows leave the category out. */
   categoryColumn: boolean;
+  /** Keeps the rows' queue column clear, so the category lines up with theirs. */
+  queueColumn: boolean;
   onSaved: (result: TaskMutationResult) => void;
   onCreatePending: (draft: TaskCreateDraft) => void;
   onCreateFailed: () => void;
@@ -101,6 +103,12 @@ const MARKER_MOVES: Record<Marker, MoveId> = {
   "#": "shorthand.tags",
   "!": "shorthand.due",
 };
+
+const MARKER_HINTS: [Marker, string][] = [
+  ["@", "category"],
+  ["#", "tags"],
+  ["!", "date"],
+];
 
 // A pill's name as a quest's success line says it, like "Due tomorrow".
 function practiceMarker(marker: Marker, slug: string): void {
@@ -147,9 +155,9 @@ function keepInView(element: HTMLElement): () => void {
   };
 }
 
-// Arrow keys move the highlighted due date by a day or a week.
 const TITLE_PLACEHOLDER = "What needs doing?";
 
+// Arrow keys move the highlighted due date by a day or a week.
 const dueSteps: Partial<Record<string, number>> = {
   ArrowLeft: -1,
   ArrowRight: 1,
@@ -192,6 +200,7 @@ export function TaskComposer({
   parentId,
   categories,
   categoryColumn,
+  queueColumn,
   onSaved,
   onCreatePending,
   onCreateFailed,
@@ -509,20 +518,28 @@ export function TaskComposer({
     if (field === titleInput.current) updateSuggestion(field.value, caret);
   }
 
-  // Types the marker at the caret as an input event, so shorthand sees it like a keypress. Only the
+  // Types the text at the caret as an input event, so shorthand sees it like a keypress. Only the
   // description keeps it as text; from the image row it goes to the title.
-  function insertMarker(marker: Marker): void {
+  function insertMarker(text: string): void {
     const field = activeField === "description" ? notesInput.current : titleInput.current;
     if (!field) return;
     field.focus();
     const end = field.selectionEnd ?? field.value.length;
-    field.setRangeText(marker, field.selectionStart ?? end, end, "end");
+    field.setRangeText(text, field.selectionStart ?? end, end, "end");
     field.dispatchEvent(
-      new InputEvent("input", { bubbles: true, inputType: "insertText", data: marker }),
+      new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }),
     );
   }
 
-  function handleTitleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
+  // A hint word starts its marker at the title's end, after a space so it reads as shorthand.
+  function startMarker(marker: Marker): void {
+    const field = titleInput.current;
+    if (!field) return;
+    focusAtEnd(field);
+    insertMarker(/\S$/.test(field.value) ? ` ${marker}` : marker);
+  }
+
+  function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.nativeEvent.isComposing || event.keyCode === 229) {
       if (event.key === "Enter") event.preventDefault();
       return;
@@ -689,11 +706,9 @@ export function TaskComposer({
           <div
             className="flex min-w-0 flex-wrap items-center gap-1"
             onMouseDown={(event) => {
-              const input = titleInput.current;
-              if (event.target !== event.currentTarget || !input) return;
+              if (event.target !== event.currentTarget) return;
               event.preventDefault();
-              input.focus();
-              input.setSelectionRange(input.value.length, input.value.length);
+              focusAtEnd(titleInput.current);
             }}
           >
             <div className="inline-grid max-w-full grid-cols-1">
@@ -803,31 +818,103 @@ export function TaskComposer({
               <ClassificationPills kind="category" {...pillProps} />
             </div>
           )}
+          {queueColumn ? <span className="w-7 shrink-0 sm:w-10" /> : null}
         </div>
       </div>
-      {logged && !task ? (
-        <LoggedWhenPill
-          when={when}
-          day={loggedDay}
-          onWhen={setWhen}
-          onDay={setLoggedDay}
-          pillRef={whenPill}
-          onKeyDown={(event) => {
-            if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
-            if (event.target !== whenPill.current && !event.shiftKey) return;
-            event.preventDefault();
-            focusAfter("when", event.shiftKey);
-          }}
-        />
-      ) : null}
-      {/* The shorthand hint on a bare task; the mouse fallbacks sit at the end of its line. */}
-      {classification.category === null &&
-      classification.tags.length === 0 &&
-      classification.due === null ? (
-        <span className="flex min-h-5 grow items-center text-xs text-muted-foreground">
-          @category #tags !date
-        </span>
-      ) : null}
+      {/* Line 2 beside the key hints, so a description starts right under the title. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 empty:hidden @max-md:basis-full">
+        <div className="flex flex-wrap items-start gap-x-2 gap-y-1 empty:hidden">
+          {logged && !task ? (
+            <LoggedWhenPill
+              when={when}
+              day={loggedDay}
+              onWhen={setWhen}
+              onDay={setLoggedDay}
+              pillRef={whenPill}
+              onKeyDown={(event) => {
+                if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
+                // Tab moves within the when, from the pill to its date field, before leaving it.
+                const onPill = event.target === whenPill.current;
+                if (event.shiftKey ? !onPill : onPill && when === "day") return;
+                event.preventDefault();
+                focusAfter("when", event.shiftKey);
+              }}
+            />
+          ) : null}
+          {/* The shorthand hint on a bare task; the mouse fallbacks sit at the end of its line. */}
+          {classification.category === null &&
+          classification.tags.length === 0 &&
+          classification.due === null ? (
+            <span className="flex min-h-5 grow items-center gap-1.5 text-xs text-muted-foreground">
+              {MARKER_HINTS.map(([marker, word]) => (
+                <button
+                  key={marker}
+                  type="button"
+                  tabIndex={-1}
+                  disabled={pending}
+                  className="rounded-sm hover:text-foreground hover:underline"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => startMarker(marker)}
+                >
+                  {marker}
+                  {word}
+                </button>
+              ))}
+            </span>
+          ) : null}
+        </div>
+        {titleError ? <FieldError id={`${id}-error`}>Write a title first.</FieldError> : null}
+        {notesOpen ? (
+          <div className="pt-0.5 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1">
+            <InlineDescription
+              ref={notesInput}
+              className={cn(touch && "scroll-mb-12")}
+              aria-label="Description"
+              name="description"
+              placeholder="Write in Markdown…"
+              value={description}
+              readOnly={pending}
+              onChange={(event) => {
+                if (!described.current && event.target.value.trim()) {
+                  described.current = true;
+                  practice("edit.description");
+                }
+                setDescription(event.target.value);
+              }}
+              onFocus={() => setActiveField("description")}
+              onPaste={pending ? undefined : images.paste}
+              onBlur={(event) => {
+                const nextFocus = event.relatedTarget;
+                if (
+                  !description.trim() &&
+                  nextFocus instanceof HTMLElement &&
+                  event.currentTarget.form?.contains(nextFocus)
+                )
+                  setNotesOpen(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+                if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                  event.preventDefault();
+                  focusAfter("description", event.shiftKey);
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (!pending) onCancel();
+                }
+              }}
+            />
+          </div>
+        ) : touch ? (
+          <div className="pt-1">
+            <PlaceholderButton type="button" tabIndex={-1} disabled={pending} onClick={showNotes}>
+              Add a description…
+            </PlaceholderButton>
+          </div>
+        ) : null}
+      </div>
       {!touch ? (
         <div className="-my-0.5 ml-auto flex items-center justify-end gap-0.5 motion-safe:animate-in motion-safe:fade-in @max-md:order-last @max-md:basis-full">
           <KeyHintButton
@@ -862,61 +949,6 @@ export function TaskComposer({
           >
             {pending ? "Saving…" : "Save"}
           </KeyHintButton>
-        </div>
-      ) : null}
-      {titleError ? (
-        <div className="basis-full">
-          <FieldError id={`${id}-error`}>Write a title first.</FieldError>
-        </div>
-      ) : null}
-      {notesOpen ? (
-        <div className="basis-full pt-1 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1">
-          <InlineDescription
-            ref={notesInput}
-            className={cn(touch && "scroll-mb-12")}
-            aria-label="Description"
-            name="description"
-            placeholder="Write in Markdown…"
-            value={description}
-            readOnly={pending}
-            onChange={(event) => {
-              if (!described.current && event.target.value.trim()) {
-                described.current = true;
-                practice("edit.description");
-              }
-              setDescription(event.target.value);
-            }}
-            onFocus={() => setActiveField("description")}
-            onPaste={pending ? undefined : images.paste}
-            onBlur={(event) => {
-              const nextFocus = event.relatedTarget;
-              if (
-                !description.trim() &&
-                nextFocus instanceof HTMLElement &&
-                event.currentTarget.form?.contains(nextFocus)
-              )
-                setNotesOpen(false);
-            }}
-            onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-              if (event.key === "Tab" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-                event.preventDefault();
-                focusAfter("description", event.shiftKey);
-                return;
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                event.stopPropagation();
-                if (!pending) onCancel();
-              }
-            }}
-          />
-        </div>
-      ) : touch ? (
-        <div className="basis-full pt-1">
-          <PlaceholderButton type="button" tabIndex={-1} disabled={pending} onClick={showNotes}>
-            Add a description…
-          </PlaceholderButton>
         </div>
       ) : null}
       {touch ? (

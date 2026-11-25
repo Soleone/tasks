@@ -22,6 +22,19 @@ The app shows what agents did while you were away, as far as this device knows: 
 | `agents.lens` | `Shift+A`, clicking the count, or Changed by agents in the `Ctrl/⌘+K` palette | The list shows those tasks in every status, the latest change first, and turns like the done lens (`done.lens-flip`). Under each title a line names the task's latest change by an agent, e.g. "Completed by claude · 14:32". A change that arrives while the lens is open joins it |
 | `agents.seen` | The agents lens closes, in any way | What it showed counts as looked at, so the count clears until an agent changes something again. The device remembers this between launches. A device that never looked starts 24 hours back |
 
+## Queue
+
+The queue is the tasks you lined up to work off next, in your own order. Being queued is part of the task (see `update.queue`), so it syncs and the CLI sees it; only the lens is a view.
+
+| Rule | When | Then |
+| --- | --- | --- |
+| `queue.add` | `Q`, or Add to queue in the task menu, on an open, in-progress or paused task | It joins the back of the queue and its number slides in from the right at the row's end. On a task already queued, it leaves the queue instead. Done and canceled tasks can't be queued, and finishing one takes it out (`status.leaves-queue`) |
+| `queue.front` | `Shift+Q` on an open, in-progress or paused task | It goes to the front, queued or not. Its number drops in from above and each number behind it rolls to its new place |
+| `queue.marker` | The list shows a queued task | Each queued row shows its place in the queue in the accent color after its category, the front one bold, in a column every row keeps while any queued task shows. On a phone the column shows just the number |
+| `queue.count` | Any task is queued | The header shows how many, in the accent color, left of the agents count |
+| `queue.lens` | `W`, clicking the count, or Work off the queue in the `Ctrl/⌘+K` palette | The list shows the queue in queue order, with subtasks on their own lines rather than under their parents (`lens.parents`). Rows outside it fold away and the queued ones gather into place; going back spreads them out and unfolds the others between them. Reduced motion turns it off |
+| `queue.move` | `Ctrl/⌘+↑↓` or `Ctrl/⌘+Home/End` in the queue lens, sorted by manual order | The active task moves within the queue. The list's own manual order is untouched |
+
 ## Due now
 
 | Rule | When | Then |

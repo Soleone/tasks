@@ -6,7 +6,11 @@ import type { CanonicalTask } from "./taskModel.js";
 import { parseTaskVersion } from "./updateInputs.js";
 
 type TaskVersion = { id: string; expectedVersion: number };
-type Placement = { beforeId: string } | { afterId: string } | { first: true } | { last: true };
+export type Placement =
+  | { beforeId: string }
+  | { afterId: string }
+  | { first: true }
+  | { last: true };
 export type OrderInput = { tasks: TaskVersion[] } & (
   | { kind: "reorder"; placement: Placement }
   | { kind: "normalize"; parentId: string | null }
@@ -23,7 +27,7 @@ export const ORDER_COMMANDS = ["task.reorder", "task.order.normalize"];
 function invalid(message: string): never {
   throw new CommandError("INVALID_ARGUMENT", message);
 }
-function allocateKeys(lower: string | null, upper: string | null, count: number): string[] {
+export function allocateKeys(lower: string | null, upper: string | null, count: number): string[] {
   try {
     const keys = generateNKeysBetween(lower, upper, count);
     if (!keys.every(isOrderKey)) throw new Error("unrepresentable allocation");
@@ -56,9 +60,10 @@ export function parseOrder(command: string, args: Record<string, unknown>): Orde
       invalid("normalization needs explicit parentId or null");
     return { kind: "normalize", tasks, parentId: args.parentId as string | null };
   }
-  if (command !== "task.reorder")
-    throw new CommandError("UNSUPPORTED_COMMAND", "ordering command is unavailable");
-  const placement = args.placement;
+  return { kind: "reorder", tasks, placement: parsePlacement(args.placement) };
+}
+
+export function parsePlacement(placement: unknown): Placement {
   if (!isRecord(placement) || Object.keys(placement).length !== 1)
     invalid("placement needs exactly one anchor or end");
   const key = Object.keys(placement)[0];
@@ -71,7 +76,7 @@ export function parseOrder(command: string, args: Record<string, unknown>): Orde
     !/^[A-Za-z0-9_-]+$/.test(placement[key] as string)
   )
     invalid("invalid ordering anchor");
-  return { kind: "reorder", tasks, placement: placement as Placement };
+  return placement as Placement;
 }
 
 export function planOrder(input: OrderInput, tasks: CanonicalTask[]): OrderPlan {

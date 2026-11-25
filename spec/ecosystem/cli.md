@@ -17,10 +17,10 @@ Every desktop install contains it (`platform.cli-location`), and Settings › Da
 
 | Verb | Command |
 | --- | --- |
-| `list [search]` | `task.list` with `--status`, `--priority`, `--category`, `--uncategorized`, `--tag`, `--search`, `--unblocked`, `--include-ancestors`, `--sort` (including `effort`, `due` and `closed`), `--direction`, `--limit`, `--offset` |
+| `list [search]` | `task.list` with `--status`, `--priority`, `--category`, `--uncategorized`, `--tag`, `--search`, `--unblocked`, `--queued` (the queue, front first), `--include-ancestors`, `--sort` (including `effort`, `due`, `closed` and `queue`), `--direction`, `--limit`, `--offset` |
 | `show ID` | `task.get`, with each attachment's absolute path |
 | `add TEXT...` | `task.create` with shorthand. `--title` is literal; also `--description`, `--priority`, `--effort`, `--parent`, `--category`, `--tag`, `--due` |
-| `update ID` | `task.update` with `--title`, `--text`, `--description`, `--priority`, `--effort`, `--category`, `--clear-category`, `--tag`, `--clear-tags`, `--due`, `--clear-due` |
+| `update ID` | `task.update` with `--title`, `--text`, `--description`, `--priority`, `--effort`, `--category`, `--clear-category`, `--tag`, `--clear-tags`, `--due`, `--clear-due`, `--queue first\|last\|off` |
 | `start` `pause` `complete` `reopen` `cancel` `delete` `ID` | the matching status command |
 | `undo ID` | `task.status.undo` |
 | `undo-operation ID` | `operation.undo` |

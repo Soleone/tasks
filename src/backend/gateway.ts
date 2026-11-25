@@ -1,12 +1,14 @@
 import { CommandError } from "./errors.js";
 import { listActivity, listCliActivity } from "./activity.js";
 import { inspectCanonicalRoot, readPhysicalRoot } from "./canonicalReader.js";
+import type { RootInspection } from "./canonicalReader.js";
 import {
   observeQueryAuthority,
   restoreSavedScan,
   synchronizeAuthority,
   withCacheTransaction,
 } from "./queryCache.js";
+import type { QueryAuthority } from "./queryCache.js";
 import { executeUpdate } from "./updateWriter.js";
 import { executeAttachmentWrite, readAttachment } from "./attachments.js";
 import { isTaskEditRequest } from "./taskEditRequest.js";
@@ -122,23 +124,7 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
           pendingOperationId: pending?.operationId ?? null,
           workspaceRevision: authority.workspaceRevision,
         }
-      : request.command === "workspace.export"
-        ? withRootWriterLock(inspection, () => exportWorkspace(inspection.rootPath, request.args))
-        : request.command === "attachment.read"
-          ? readAttachment(inspection.rootPath, request.args)
-          : request.command === "activity.list"
-            ? request.args.from === "cli"
-              ? listCliActivity(cachePath, request.args)
-              : withCacheTransaction(cachePath, inspection, (database) => {
-                  synchronizeAuthority(database, inspection);
-                  return listActivity(database, request.args, authority.writeContext);
-                })
-            : executeQuery(
-                request.command,
-                request.args,
-                projectTasks(inspection.snapshot!.tasks, authority),
-                authority.workspaceRevision,
-              );
+      : executeRead(request, inspection, authority, cachePath);
     if (!isInfo && readPending(inspection))
       throw new CommandError("RECOVERY_PENDING", "root changed while querying");
     return {
@@ -151,6 +137,31 @@ export function executeLine(bytes: Uint8Array, rootPath: string, cachePath: stri
   } catch (error) {
     return failureResponse(requestId, error);
   }
+}
+
+function executeRead(
+  request: Request,
+  inspection: RootInspection,
+  authority: QueryAuthority,
+  cachePath: string,
+) {
+  if (request.command === "workspace.export")
+    return withRootWriterLock(inspection, () => exportWorkspace(inspection.rootPath, request.args));
+  if (request.command === "attachment.read")
+    return readAttachment(inspection.rootPath, request.args);
+  if (request.command === "activity.list" && request.args.from === "cli")
+    return listCliActivity(cachePath, request.args);
+  if (request.command === "activity.list")
+    return withCacheTransaction(cachePath, inspection, (database) => {
+      synchronizeAuthority(database, inspection);
+      return listActivity(database, request.args, authority.writeContext);
+    });
+  return executeQuery(
+    request.command,
+    request.args,
+    projectTasks(inspection.snapshot!.tasks, authority),
+    authority.workspaceRevision,
+  );
 }
 
 // Order matters: removal, undo and order commands are claimed before the

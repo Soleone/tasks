@@ -1,11 +1,11 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { flushSync } from "react-dom";
-import { Bot, CalendarDays, CircleCheck } from "lucide-react";
+import { Bot, CalendarDays, CircleCheck, ListEnd } from "lucide-react";
 import { preventFocusSteal } from "@/navigation";
 import { BindingKbd } from "@/components/variants/kbd";
 import { ariaShortcut, type BindingId } from "@/keymap";
-import { Tooltip } from "@/components/variants/tooltip";
-import { TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
+import { TooltipTrigger } from "@/components/ui/tooltip";
 import { ToggleButton } from "@/components/variants/button";
 import type { ListLens } from "./listLens";
 import { isMet, type GoalsToday } from "@/goals";
@@ -45,14 +45,15 @@ function LensCount({
   children: ReactNode;
 }): ReactElement | null {
   // The lens keeps its way back, even after the count falls to zero.
-  if (total === 0 && !lensOn && !holdPlace && !alwaysShown) return null;
+  const hidden = total === 0 && !lensOn && !alwaysShown;
+  if (hidden && !holdPlace) return null;
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <ToggleButton
             variant="ghost"
-            className={total === 0 && !lensOn && !alwaysShown ? "invisible" : undefined}
+            className={hidden ? "invisible" : undefined}
             selected={lensOn}
             aria-pressed={lensOn}
             tabIndex={-1}
@@ -206,6 +207,22 @@ export function DueNow(props: LensCountProps): ReactElement | null {
       <span className="text-destructive" data-lens-number>
         {props.total}
       </span>
+    </LensCount>
+  );
+}
+
+/** The tasks you lined up to work off next, in the accent color like the queue's numbers. */
+export function Queue(props: LensCountProps): ReactElement | null {
+  return (
+    <LensCount
+      {...props}
+      kind="queue"
+      label="queued"
+      shortcut="queue.lens"
+      showLabel="Work off the queue"
+    >
+      <ListEnd data-icon="inline-start" aria-hidden="true" className="text-primary" />
+      <span data-lens-number>{props.total}</span>
     </LensCount>
   );
 }

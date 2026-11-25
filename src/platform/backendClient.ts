@@ -82,7 +82,7 @@ export type TaskListFilters = {
   search?: string;
   category?: string;
   excludeCategories?: string[];
-  sort?: SortField;
+  sort?: SortField | "queue";
   direction?: "asc" | "desc";
   includeAncestors?: boolean;
   includeDescendants?: boolean;
@@ -90,6 +90,7 @@ export type TaskListFilters = {
   closedBefore?: string;
   dueBefore?: string;
   ids?: readonly string[];
+  queued?: true;
   limit?: number;
 };
 
@@ -153,6 +154,7 @@ function listArgs({
     ...(filters.closedBefore !== undefined ? { closedBefore: filters.closedBefore } : {}),
     ...(filters.dueBefore !== undefined ? { dueBefore: filters.dueBefore } : {}),
     ...(filters.ids !== undefined ? { ids: filters.ids } : {}),
+    ...(filters.queued ? { queued: true } : {}),
     ...(filters.limit !== undefined ? { limit: filters.limit } : {}),
     offset,
   };

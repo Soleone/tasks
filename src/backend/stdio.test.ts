@@ -1,31 +1,14 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import os from "node:os";
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import type { TestContext } from "node:test";
+import { createCopyTestWorkspace as setup } from "./copyTestWorkspace.js";
+import type { CopyTestWorkspace as Workspace } from "./copyTestWorkspace.js";
 import type { Response } from "./protocol.js";
 
 const cli = fileURLToPath(new URL("./tasks-cli.js", import.meta.url));
-const golden = fileURLToPath(new URL("../../scripts/fixtures/workspace/root/", import.meta.url));
-type Workspace = { root: string; cache: string };
-function setup(t: TestContext): Workspace {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "tasks-process-"));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const root = path.join(directory, "root");
-  cpSync(golden, root, { recursive: true });
-  return { root, cache: path.join(directory, "cache.db") };
-}
 
 function run(workspace: Workspace, bytes: Buffer): Response[] {
   const output = execFileSync(

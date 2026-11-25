@@ -28,18 +28,17 @@ export function weekDots(): Map<string, DOMRect> {
 function fly(
   from: DOMRect,
   to: DOMRect,
-  { copy, color, size, delay = 0, duration = 560, arc = 40 }: FlightLook,
+  { copy, color, size, delay = 0, duration = 560, arc }: FlightLook,
 ): number {
   const flyer = copy
     ? (copy.cloneNode(true) as HTMLElement | SVGElement)
     : document.createElement("span");
-  const start = size ?? Math.max(from.width, 8);
   Object.assign(flyer.style, {
     position: "fixed",
-    left: `${from.left + from.width / 2 - start / 2}px`,
-    top: `${from.top + from.height / 2 - start / 2}px`,
-    width: `${start}px`,
-    height: `${start}px`,
+    left: `${from.left + from.width / 2 - size / 2}px`,
+    top: `${from.top + from.height / 2 - size / 2}px`,
+    width: `${size}px`,
+    height: `${size}px`,
     margin: "0",
     pointerEvents: "none",
     zIndex: "60",
@@ -49,7 +48,7 @@ function fly(
   document.body.append(flyer);
   const dx = to.left + to.width / 2 - (from.left + from.width / 2);
   const dy = to.top + to.height / 2 - (from.top + from.height / 2);
-  const end = (Math.min(to.width, to.height) * 0.55) / start;
+  const end = (Math.min(to.width, to.height) * 0.55) / size;
   const remove = () => flyer.remove();
   flyer
     .animate(
@@ -71,10 +70,10 @@ function fly(
 type FlightLook = {
   copy?: Element;
   color?: string;
-  size?: number;
+  size: number;
   delay?: number;
   duration?: number;
-  arc?: number;
+  arc: number;
 };
 
 /** A day's dot color: the theme's green, faint for a day that got only part of the way. */
@@ -218,16 +217,6 @@ export function playSlide(root: HTMLElement, direction: number): void {
   countUp(root, 80);
 }
 
-function bump(element: Element, scale: number): void {
-  element.animate(
-    [{ transform: "none" }, { transform: `scale(${scale})` }, { transform: "none" }],
-    {
-      duration: 300,
-      easing: "ease-out",
-    },
-  );
-}
-
 function sparks(cell: HTMLElement, colors: string[]): void {
   const box = cell.getBoundingClientRect();
   for (let index = 0; index < 14; index += 1) {
@@ -269,7 +258,10 @@ function sparks(cell: HTMLElement, colors: string[]): void {
 export function playDayClosed(root: HTMLElement, today: string, colors: string[]): void {
   const cell = cellOf(root, today);
   if (!flightsPlay() || !cell) return;
-  bump(cell, 1.1);
+  cell.animate([{ transform: "none" }, { transform: "scale(1.1)" }, { transform: "none" }], {
+    duration: 300,
+    easing: "ease-out",
+  });
   sparks(cell, colors);
   const link = root.querySelector<HTMLElement>(`[data-thread][data-to="${today}"]`);
   link?.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], {
