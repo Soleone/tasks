@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vite-plus/test";
-import paletteSource from "@/components/HelpPalette.tsx?raw";
+import paletteSource from "@/components/helpEntries.ts?raw";
 import { BINDINGS } from "@/keymap";
 import * as backendClient from "@/platform/backendClient";
 import { AppWorkspace } from "@/testing/appWorkspace";
