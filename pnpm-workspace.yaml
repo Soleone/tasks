@@ -28,3 +28,5 @@ peerDependencyRules:
     - vite
   allowedVersions:
     vite: "*"
+patchedDependencies:
+  release-it@21.1.2: patches/release-it@21.1.2.patch

@@ -1,0 +1,25 @@
+diff --git a/lib/plugin/version/Version.js b/lib/plugin/version/Version.js
+index d06efa8adde34cbb0543c9ad68d62a6ef930c2f4..9bd8f24c6f222940676a55fb11e065448370e7cf 100644
+--- a/lib/plugin/version/Version.js
++++ b/lib/plugin/version/Version.js
+@@ -87,12 +87,10 @@ class Version extends Plugin {
+   promptIncrementVersion(options) {
+-    return new Promise(resolve => {
+-      this.step({
+-        prompt: 'incrementList',
+-        task: increment => {
+-          if (increment === EXIT) process.exit(0);
+-          return increment
+-            ? resolve(this.incrementVersion(Object.assign({}, options, { increment })))
+-            : this.step({ prompt: 'version', task: resolve });
+-        }
+-      });
++    return this.step({
++      prompt: 'incrementList',
++      task: increment => {
++        if (increment === EXIT) process.exit(0);
++        return increment
++          ? this.incrementVersion(Object.assign({}, options, { increment }))
++          : this.step({ prompt: 'version', task: version => version });
++      }
+     });
