@@ -30,7 +30,8 @@ import {
 } from "@/components/taskFilters";
 import { lensPhrase, type GoalLens, type ListLens } from "./listLens";
 import type { GoalsToday } from "@/goals";
-import { CategoryFact, type QueueArrival } from "./TaskRow";
+import { CategoryFact } from "./TaskFacts";
+import type { QueueArrival } from "./TaskRow";
 import {
   InlineTaskComposer,
   isEditorSaving,

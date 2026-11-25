@@ -3,7 +3,7 @@ import { Check, Flag } from "lucide-react";
 import { cn } from "cn";
 import type { TaskPriority } from "@/backend/taskModel";
 import { PRIORITY_META } from "@/components/taskFilters";
-import { StatusGlyph } from "@/components/TaskRow";
+import { StatusGlyph } from "@/components/TaskStatus";
 import {
   CommandEmpty,
   CommandGroup,

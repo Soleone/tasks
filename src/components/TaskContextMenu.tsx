@@ -27,7 +27,7 @@ import {
   taskStatusMeta,
 } from "./taskFilters";
 import { SETTABLE_STATUSES, statusSettable, type SettableStatus } from "./taskStatusCycle";
-import { StatusGlyph } from "./TaskRow";
+import { StatusGlyph } from "./TaskStatus";
 import type { TaskMoveDirection } from "./taskReordering";
 import {
   ContextMenu,

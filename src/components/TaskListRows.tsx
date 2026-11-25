@@ -5,13 +5,8 @@ import type { ClassificationOption, TaskView } from "./taskView";
 import type { VisibleTaskRow } from "./taskTree";
 import { forwardStatusTransition, reverseStatusTransition } from "./taskStatusCycle";
 import { taskStatusMeta } from "./taskFilters";
-import {
-  TaskRow,
-  TaskStatusDisplay,
-  TaskStatusToggle,
-  taskContextMessage,
-  type QueueArrival,
-} from "./TaskRow";
+import { TaskRow, taskContextMessage, type QueueArrival } from "./TaskRow";
+import { TaskStatusDisplay, TaskStatusToggle } from "./TaskStatus";
 import { TaskComposer, type ComposerState, type TaskCreateDraft } from "./TaskComposer";
 import { preventFocusSteal } from "@/navigation";
 import type { TaskMutationResult } from "@/platform/backendClient";

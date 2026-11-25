@@ -4,7 +4,7 @@ import { cn } from "cn";
 import { daysBetween, localToday } from "@/backend/dueDate";
 import { formatDueDate, shortDueDate } from "@/backend/taskDates";
 import { Hinted } from "./Hinted";
-import { CategoryFact, DueFact, TagFact } from "./TaskRow";
+import { CategoryFact, DueFact, TagFact } from "./TaskFacts";
 import { preventFocusSteal } from "@/navigation";
 import { centerY, flyFilterToPill, PILL_FLIGHT_MS } from "./categoryFlight";
 import type { Classification, Marker, PartialToken } from "./composerShorthand";
