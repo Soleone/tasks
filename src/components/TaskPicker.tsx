@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, type ReactElement } from "react";
 import { Link2Off } from "lucide-react";
 import type { TaskView } from "./taskView";
-import { TaskRow, TaskStatusDisplay } from "@/components/TaskRow";
+import { TaskRow } from "@/components/TaskRow";
+import { TaskStatusDisplay } from "@/components/TaskStatus";
 import {
   CommandEmpty,
   CommandGroup,

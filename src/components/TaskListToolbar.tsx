@@ -38,7 +38,7 @@ import {
   type SortField,
   type StatusPreset,
 } from "./taskFilters";
-import { CategoryFact } from "./TaskRow";
+import { CategoryFact } from "./TaskFacts";
 import { useFilterTuck } from "./useFilterTuck";
 import { lensFilter, lensPhrase, nextDoneWindow, type GoalLens, type ListLens } from "./listLens";
 import { DoneLensGoals, goalLens, WeekDots } from "./GoalRings";

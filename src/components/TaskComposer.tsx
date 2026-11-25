@@ -31,7 +31,7 @@ import {
   type TitleDraft,
 } from "./composerShorthand";
 import { ClassificationPills, type PillLanding } from "./ClassificationPills";
-import { CategoryColumn } from "./TaskRow";
+import { CategoryColumn } from "./TaskFacts";
 import { DueDatePicker } from "./DueDatePicker";
 import {
   createTask,

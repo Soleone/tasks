@@ -8,7 +8,8 @@ import { AnchoredDialogContent } from "@/components/variants/dialog";
 import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
 import { preventFocusSteal } from "@/navigation";
 import type { SyncConflict } from "@/platform/backendClient";
-import { TaskRow, TaskStatusDisplay } from "./TaskRow";
+import { TaskRow } from "./TaskRow";
+import { TaskStatusDisplay } from "./TaskStatus";
 import type { TaskView } from "./taskView";
 
 const countLabel = (total: number): string =>
