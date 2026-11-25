@@ -25,9 +25,14 @@ type PendingRequest<Response extends CorrelatedResponse> = {
 
 const REQUEST_TIMEOUT_MS = 120_000;
 
+type SessionState =
+  | { kind: "idle" }
+  | { kind: "starting"; process: Promise<BackendProcess> }
+  | { kind: "running"; child: BackendProcess }
+  | { kind: "closing"; done: Promise<void> };
+
 export class JsonLineSession<Response extends CorrelatedResponse> {
-  private child: BackendProcess | null = null;
-  private starting: Promise<void> | null = null;
+  private state: SessionState = { kind: "idle" };
   private stdoutBuffer = "";
   private readonly pending = new Map<string, PendingRequest<Response>>();
   private readonly exited = new WeakSet<BackendProcess>();
@@ -39,16 +44,19 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
   ) {}
 
   async request(request: { requestId: string }): Promise<Response> {
-    await this.ensureStarted();
-
-    if (!this.child) {
+    const state = this.state;
+    if (state.kind === "closing") throw new Error("backend session closed");
+    const child = await (state.kind === "running"
+      ? state.child
+      : state.kind === "starting"
+        ? state.process
+        : this.start());
+    if (this.state.kind !== "running" || this.state.child !== child)
       throw new Error("backend process is not available");
-    }
 
     if (this.pending.has(request.requestId)) {
       throw new Error("backend request ID is already pending");
     }
-    const child = this.child;
     return new Promise<Response>((resolve, reject) => {
       const timeout = setTimeout(() => {
         if (this.pending.has(request.requestId)) {
@@ -68,43 +76,40 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
   }
 
   async close(): Promise<void> {
-    const starting = this.starting;
-    const child = this.rejectPending(new Error("backend session closed"));
-    await starting?.catch(() => undefined);
+    const state = this.state;
+    if (state.kind === "idle") return;
+    if (state.kind === "closing") return state.done;
 
-    const spawnedAfterClose = this.child;
-    this.child = null;
-    for (const closingChild of new Set([child, spawnedAfterClose])) {
-      try {
-        await this.kill(closingChild);
-      } catch (error) {
-        // Keep the failed-close child selected so a retry cannot forget it and reload.
-        this.child = closingChild;
-        throw error;
+    const done = Promise.resolve().then(async () => {
+      const child =
+        state.kind === "running" ? state.child : await state.process.catch(() => undefined);
+      if (child) {
+        await this.kill(child).catch((error: unknown) => {
+          // Keep the failed-close child selected so a retry cannot forget it and reload.
+          this.state = { kind: "running", child };
+          throw error;
+        });
       }
-    }
+      this.state = { kind: "idle" };
+    });
+    this.state = { kind: "closing", done };
+    this.rejectPending(new Error("backend session closed"));
+    return done;
   }
 
-  private async ensureStarted(): Promise<void> {
-    if (this.child) {
-      return;
-    }
-
-    if (!this.starting) {
-      this.starting = this.spawnBackend();
-    }
-
-    try {
-      await this.starting;
-    } finally {
-      this.starting = null;
-    }
+  private start(): Promise<BackendProcess> {
+    const process = this.spawnBackend().catch((error: unknown) => {
+      if (this.state.kind === "starting") this.state = { kind: "idle" };
+      throw error;
+    });
+    this.state = { kind: "starting", process };
+    return process;
   }
 
-  private async spawnBackend(): Promise<void> {
+  private async spawnBackend(): Promise<BackendProcess> {
     const command = await this.makeCommand();
     let spawnedChild: BackendProcess | null = null;
-    const isCurrent = () => spawnedChild !== null && this.child === spawnedChild;
+    const isCurrent = () => this.state.kind === "running" && this.state.child === spawnedChild;
 
     command.stdout.on("data", (data) => {
       if (isCurrent()) {
@@ -121,13 +126,9 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
       this.fail(new Error(`backend process closed with ${detail}`));
     });
 
-    try {
-      spawnedChild = await command.spawn();
-      this.child = spawnedChild;
-    } catch (error) {
-      this.fail(error);
-      throw error;
-    }
+    spawnedChild = await command.spawn();
+    if (this.state.kind === "starting") this.state = { kind: "running", child: spawnedChild };
+    return spawnedChild;
   }
 
   private consumeStdout(data: string): void {
@@ -163,15 +164,16 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
   }
 
   private fail(value: unknown): void {
-    const child = this.rejectPending(value);
+    const state = this.state;
+    if (state.kind !== "running") return;
+    this.state = { kind: "idle" };
+    this.rejectPending(value);
     // Failure cleanup is best effort; an intentional close must report a live child's refusal.
-    void this.kill(child).catch(() => undefined);
+    void this.kill(state.child).catch(() => undefined);
   }
 
-  private rejectPending(value: unknown): BackendProcess | null {
+  private rejectPending(value: unknown): void {
     const error = value instanceof Error ? value : new Error(String(value));
-    const child = this.child;
-    this.child = null;
     this.stdoutBuffer = "";
 
     for (const request of this.pending.values()) {
@@ -179,11 +181,10 @@ export class JsonLineSession<Response extends CorrelatedResponse> {
       request.reject(error);
     }
     this.pending.clear();
-    return child;
   }
 
-  private async kill(child: BackendProcess | null): Promise<void> {
-    if (!child || this.exited.has(child)) return;
+  private async kill(child: BackendProcess): Promise<void> {
+    if (this.exited.has(child)) return;
     try {
       await child.kill();
     } catch (error) {

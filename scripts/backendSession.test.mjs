@@ -86,6 +86,53 @@ test("a hung sidecar rejects pending calls and the next request starts a fresh p
   }
 });
 
+test("close during startup prevents requests until the starting child has stopped", async () => {
+  const start = Promise.withResolvers();
+  const stopping = Promise.withResolvers();
+  const stop = Promise.withResolvers();
+  let launches = 0;
+  let kills = 0;
+  const command = fakeCommand(
+    true,
+    () => {
+      if (++kills === 1) {
+        stopping.resolve();
+        return stop.promise;
+      }
+    },
+    () => {},
+  );
+  const session = new JsonLineSession(
+    async () => {
+      launches++;
+      await start.promise;
+      return command;
+    },
+    (value) => value,
+  );
+  const opening = assert.rejects(session.request({ requestId: "opening" }), /not available/);
+  const close = session.close();
+  try {
+    const duringStartup = session.request({ requestId: "during-startup" });
+    start.resolve();
+    await assert.rejects(duringStartup, /session closed/);
+    await stopping.promise;
+    const secondClose = session.close();
+    await assert.rejects(session.request({ requestId: "during-kill" }), /session closed/);
+    stop.resolve();
+    await Promise.all([opening, close, secondClose]);
+    assert.equal(kills, 1);
+    assert.equal(launches, 1);
+    assert.equal((await session.request({ requestId: "reopened" })).requestId, "reopened");
+    assert.equal(launches, 2);
+  } finally {
+    start.resolve();
+    stop.resolve();
+    await Promise.allSettled([opening, close]);
+    await session.close();
+  }
+});
+
 test("intentional close reports a live child's kill failure and retries that same child", async () => {
   let launches = 0,
     kills = 0;
