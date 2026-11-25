@@ -7,6 +7,7 @@ import {
   Circle,
   CircleCheck,
   CircleHelp,
+  Trophy,
   Copy,
   CirclePause,
   CornerDownRight,
@@ -39,6 +40,7 @@ import {
   type LucideIcon,
   Menu,
 } from "lucide-react";
+import type { ReportRange } from "@/goalReport";
 import type { TaskView } from "./taskView";
 import {
   CommandEmpty,
@@ -78,6 +80,8 @@ type HelpEntry = {
     | "toggle-queue-lens"
     | "widen-done-lens"
     | "open-goal-report"
+    | "open-goal-report-year"
+    | "open-learn"
     | "add-blocker"
     | "move-under"
     | "queue-task"
@@ -482,6 +486,22 @@ function helpGroups(): { heading: string; entries: HelpEntry[] }[] {
           keywords: "goals report calendar month year streak history days met",
         },
         {
+          label: "Goal report by year",
+          hint: "Every day of the year against your goals",
+          action: "open-goal-report-year",
+          icon: CalendarRange,
+          keys: caps("goals.report-range"),
+          keywords: "goals report calendar year annual streak history days met",
+        },
+        {
+          label: "Quests and learned keys",
+          hint: "Every quest and the keys you've picked up",
+          action: "open-learn",
+          icon: Trophy,
+          keys: caps("learn.panel"),
+          keywords: "quests learn tutorial log progress keys learned",
+        },
+        {
           label: "Toggle this palette",
           icon: CircleHelp,
           keys: caps("help.palette"),
@@ -544,6 +564,7 @@ export function HelpPalette({
   onToggleLens,
   onWidenDoneLens,
   onOpenGoalReport,
+  onOpenLearn,
   onCreate,
   onLogDone,
   onCreateChild,
@@ -571,7 +592,8 @@ export function HelpPalette({
   onOpenThemes: () => void;
   onToggleLens: (kind: ListLens["kind"]) => void;
   onWidenDoneLens: () => void;
-  onOpenGoalReport: () => void;
+  onOpenGoalReport: (range: ReportRange) => void;
+  onOpenLearn: () => void;
   onCreate: () => void;
   onLogDone: () => void;
   onCreateChild: (task: TaskView) => void;
@@ -604,7 +626,9 @@ export function HelpPalette({
     "toggle-agents-lens": () => onToggleLens("agents"),
     "toggle-queue-lens": () => onToggleLens("queue"),
     "widen-done-lens": onWidenDoneLens,
-    "open-goal-report": onOpenGoalReport,
+    "open-goal-report": () => onOpenGoalReport("month"),
+    "open-goal-report-year": () => onOpenGoalReport("year"),
+    "open-learn": onOpenLearn,
     "new-task": onCreate,
     "log-done-task": onLogDone,
     "new-child-task": activeTask ? () => onCreateChild(activeTask) : undefined,

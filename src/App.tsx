@@ -1117,7 +1117,8 @@ export default function App({
         onOpenThemes={openThemes}
         onToggleLens={toggleLens}
         onWidenDoneLens={widenDoneLens}
-        onOpenGoalReport={() => openGoalReport("month")}
+        onOpenGoalReport={openGoalReport}
+        onOpenLearn={() => setLearnOpen(true)}
         onCreate={openCreate}
         onLogDone={openLog}
         onCreateChild={(task) => openCreate(task.id)}

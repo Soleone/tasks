@@ -117,6 +117,23 @@ test("goals.tooltips: a weekly goal labels today and this week", async () => {
   expect(pill.closest("[title]")).toBeNull();
 });
 
+test("goals.report: the palette opens the report on the month or the year", async () => {
+  await workspace.writeSharedSettings({ otherGoal: { count: 1, per: "day" } });
+  await workspace.create("Task");
+  const { user } = await workspace.render({ home: true });
+  await expectRows(["Task"]);
+  await user.keyboard("{Control>}k{/Control}");
+  await user.click(await screen.findByRole("option", { name: /Goal report by year/ }));
+  await waitFor(() =>
+    expect(screen.getByRole("radio", { name: "Year" }).getAttribute("aria-checked")).toBe("true"),
+  );
+  await user.keyboard("g{Control>}k{/Control}");
+  await user.click(await screen.findByRole("option", { name: /Every day of the month/ }));
+  await waitFor(() =>
+    expect(screen.getByRole("radio", { name: "Month" }).getAttribute("aria-checked")).toBe("true"),
+  );
+});
+
 test("goals.lens: the done lens counts against the goals and narrows to one", async () => {
   await workspace.writeSharedSettings({
     goals: { life: { count: 2, per: "day" } },
