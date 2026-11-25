@@ -815,7 +815,9 @@ export function TaskComposer({
               pillRef={whenPill}
               onKeyDown={(event) => {
                 if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
-                if (event.target !== whenPill.current && !event.shiftKey) return;
+                // Tab moves within the when, from the pill to its date field, before leaving it.
+                const onPill = event.target === whenPill.current;
+                if (event.shiftKey ? !onPill : onPill && when === "day") return;
                 event.preventDefault();
                 focusAfter("when", event.shiftKey);
               }}

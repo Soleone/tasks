@@ -67,10 +67,12 @@ export function LoggedWhenPill({
           event.preventDefault();
           step(by);
         }}
-        className="flex items-center gap-1 text-success underline-offset-4 outline-none focus-visible:underline"
+        className="group flex items-center gap-1 text-success outline-none"
       >
         <span aria-hidden="true">‹</span>
-        {CHOICES[index][1]}
+        <span className="underline-offset-4 group-focus-visible:underline">
+          {CHOICES[index][1]}
+        </span>
         <span aria-hidden="true">›</span>
       </button>
       {when === "day" ? (

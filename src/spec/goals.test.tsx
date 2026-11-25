@@ -229,3 +229,18 @@ test("capture.log: L logs a task already done, at the time its pill says", async
     expect(Date.now() - closed.getTime()).toBeGreaterThan(12 * 60 * 60 * 1000);
   });
 });
+
+test("capture.log: Tab from the when goes to its date field once a day is picked", async () => {
+  await workspace.create("Open");
+  const { user } = await workspace.render();
+  await expectListFocused();
+  await user.keyboard("l");
+  await user.keyboard("Ran 5k");
+  await user.tab();
+  await user.keyboard("{ArrowLeft}");
+  expect(document.activeElement?.getAttribute("data-logged-when")).toBe("day");
+  await user.tab();
+  expect(document.activeElement?.getAttribute("aria-label")).toBe("Done on");
+  await user.tab({ shift: true });
+  expect(document.activeElement?.getAttribute("data-logged-when")).toBe("day");
+});
