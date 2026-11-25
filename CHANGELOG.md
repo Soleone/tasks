@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.2](https://github.com/Soleone/tasks/compare/v0.8.1...v0.8.2) (2026-11-25)
+
+### Features
+
+* click [@category](https://github.com/category), [#tags](https://github.com/Soleone/tasks/issues/tags) or !date under a new task's title to start that shorthand ([cc69729](https://github.com/Soleone/tasks/commit/cc69729d1382d73dd0abd79ef53808746abb7470))
+* show a checked circle when logging a task already done ([bb3272a](https://github.com/Soleone/tasks/commit/bb3272a36cb1ca5e56a34f09771392cce611a93e))
+
+### Bug Fixes
+
+* keep the logged task editor from shifting when the date field appears ([9a36ba4](https://github.com/Soleone/tasks/commit/9a36ba4a5c3ea22fae13e45e07d4bbccdba67d89))
+* line up the editor's category with the rows' when the list shows queue numbers ([f3c1893](https://github.com/Soleone/tasks/commit/f3c1893f9c36ffa0bc372883f9c398e5fcbd96e3))
+* list queueing a task in the shortcuts palette ([be31998](https://github.com/Soleone/tasks/commit/be31998f7533f9af38e9262d7d94750c02ae03fc))
+* list the yearly goal report and the quest log in the shortcuts palette ([1f7807e](https://github.com/Soleone/tasks/commit/1f7807e9c8dc08f99345efedd6da85470ddf66aa))
+* Tab from the logged task's when reaches its date field, and only the label underlines ([bfed340](https://github.com/Soleone/tasks/commit/bfed3402a200089ec828470b43d4d7f6f4c6fda9))
+* underline the logged task's when choice on focus instead of ringing it ([293ab25](https://github.com/Soleone/tasks/commit/293ab25220f24dedb2221eb15cde4a4b950b7ac0))
+
 ## [0.8.1](https://github.com/Soleone/tasks/compare/v0.8.0...v0.8.1) (2026-11-25)
 
 ### Features
