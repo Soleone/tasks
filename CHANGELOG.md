@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/Soleone/tasks/compare/v0.7.8...v0.8.0) (2026-11-25)
+
+### Features
+
+* line up tasks in a queue and work it off ([e6ba4f0](https://github.com/Soleone/tasks/commit/e6ba4f0d88ca8c01b5f345924be60cce225752f6))
+* queue tasks from the CLI with update --queue and list --queued ([80e46f9](https://github.com/Soleone/tasks/commit/80e46f97c34e518a083666ac1f3c73cb6f891730))
+
+### Bug Fixes
+
+* keep the phone header from overflowing when several counts show ([e096d21](https://github.com/Soleone/tasks/commit/e096d21d71f8cd104176d4f3f5dd5ffbe6059c1e))
+* show the theme picker's hover hints as app tooltips ([778fa4d](https://github.com/Soleone/tasks/commit/778fa4da4529457fa2d01a2e4cb896f3c7ba411d))
+
 ## [0.7.8](https://github.com/Soleone/tasks/compare/v0.7.7...v0.7.8) (2026-11-22)
 
 ### Features
