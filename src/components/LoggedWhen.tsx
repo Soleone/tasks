@@ -1,7 +1,5 @@
 import type { KeyboardEvent, ReactElement, RefObject } from "react";
-import { cn } from "cn";
 import { addDays, localToday } from "@/backend/dueDate";
-import { FOCUS_RING } from "@/components/variants/focus";
 
 export type LoggedWhen = "now" | "morning" | "yesterday" | "day";
 
@@ -69,7 +67,7 @@ export function LoggedWhenPill({
           event.preventDefault();
           step(by);
         }}
-        className={cn(FOCUS_RING, "flex items-center gap-1 rounded-md text-success")}
+        className="flex items-center gap-1 text-success underline-offset-4 outline-none focus-visible:underline"
       >
         <span aria-hidden="true">‹</span>
         {CHOICES[index][1]}
@@ -82,7 +80,7 @@ export function LoggedWhenPill({
           max={localToday()}
           value={day}
           onChange={(event) => onDay(event.target.value)}
-          className={cn(FOCUS_RING, "h-5 rounded-md border bg-transparent px-1.5")}
+          className="h-5 rounded-md border bg-transparent px-1.5 outline-none focus-visible:border-success"
         />
       ) : null}
     </span>
