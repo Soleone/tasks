@@ -80,6 +80,8 @@ type HelpEntry = {
     | "open-goal-report"
     | "add-blocker"
     | "move-under"
+    | "queue-task"
+    | "queue-first"
     | "pause-task"
     | "new-task"
     | "new-child-task"
@@ -352,6 +354,20 @@ function helpGroups(): { heading: string; entries: HelpEntry[] }[] {
           keywords: "m move under parent child hierarchy subtask",
         },
         {
+          label: "Queue or unqueue task",
+          icon: ListEnd,
+          keys: caps("queue.add"),
+          action: "queue-task",
+          keywords: "q queue add remove take out line up next order",
+        },
+        {
+          label: "Queue task first",
+          icon: ListEnd,
+          keys: caps("queue.front"),
+          action: "queue-first",
+          keywords: "shift q queue front first top next line up",
+        },
+        {
           label: "Open task menu",
           hint: "Or the Menu key",
           icon: Menu,
@@ -539,6 +555,7 @@ export function HelpPalette({
   activeTask,
   onAddBlocker,
   onMoveUnder,
+  onQueueTask,
   onPauseTask,
   onCopyTask,
   onCopyImage,
@@ -566,6 +583,7 @@ export function HelpPalette({
   activeTask?: TaskView;
   onAddBlocker: (task: TaskView) => void;
   onMoveUnder: (task: TaskView) => void;
+  onQueueTask: (task: TaskView, front: boolean) => void;
   onPauseTask: (task: TaskView) => void;
   onCopyTask: (task: TaskView) => void;
   onCopyImage: (task: TaskView) => void;
@@ -600,6 +618,8 @@ export function HelpPalette({
     "add-blocker": activeTask ? () => onAddBlocker(activeTask) : undefined,
     "pause-task": activeTask ? () => onPauseTask(activeTask) : undefined,
     "move-under": activeTask ? () => onMoveUnder(activeTask) : undefined,
+    "queue-task": activeTask ? () => onQueueTask(activeTask, false) : undefined,
+    "queue-first": activeTask ? () => onQueueTask(activeTask, true) : undefined,
     "undo-status": canUndoStatus ? onUndoStatus : undefined,
     redo: canRedo ? onRedo : undefined,
   };

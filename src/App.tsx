@@ -1129,6 +1129,10 @@ export default function App({
         activeTask={taskListRef.current?.getActiveTask()}
         onAddBlocker={(task) => openPicker("blocker", task)}
         onMoveUnder={(task) => openPicker("move", task)}
+        onQueueTask={(task, front) => {
+          setHelpOpen(false);
+          void taskListRef.current?.queueTask(task, front);
+        }}
         onPauseTask={(task) => void pauseTaskFromPalette(task)}
         onCopyTask={(task) => void copyTaskText(task)}
         onCopyImage={(task) =>

@@ -133,6 +133,7 @@ export type TaskListHandle = {
   finishIdentityPreservingRefresh: () => void;
   clearActiveTaskSelection: () => void;
   getActiveTask: () => TaskView | undefined;
+  queueTask: (task: TaskView, front: boolean) => Promise<void>;
   waitForWrites: () => Promise<void>;
 };
 
@@ -583,8 +584,9 @@ export function TaskList({
           ]);
         }
       },
+      queueTask,
     }),
-    [selectionHandle],
+    [selectionHandle, queueTask],
   );
 
   // Details change row heights, so keep the active task on screen.

@@ -200,6 +200,21 @@ describe("queue", () => {
     await waitFor(() => expect(queueButton()).toBeNull());
   });
 
+  test("queue.add: the palette queues the active task, at the back or first", async () => {
+    await workspace.create("First");
+    await workspace.create("Second");
+    const { user } = await workspace.render();
+    await expectActive("Second");
+    await user.keyboard("{Control>}k{/Control}");
+    await user.click(await screen.findByRole("option", { name: /Queue or unqueue task/ }));
+    await waitFor(() => expect(queueMarkers()).toEqual(["Next in the queue"]));
+    await user.keyboard("{ArrowDown}{Control>}k{/Control}");
+    await user.click(await screen.findByRole("option", { name: /Queue task first/ }));
+    await waitFor(() =>
+      expect(queueMarkers()).toEqual(["Number 2 in the queue", "Next in the queue"]),
+    );
+  });
+
   test("queue.lens: W shows the queue in its order, Shift+Q puts a task first, and W goes back", async () => {
     await workspace.create("A");
     await workspace.create("B");
