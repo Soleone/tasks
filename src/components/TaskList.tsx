@@ -562,6 +562,11 @@ export function TaskList({
     }
   });
 
+  // The palette queues through the handle, which outlives this render's `queueTask`.
+  const queueTaskRef = useRef(queueTask);
+  useEffect(() => {
+    queueTaskRef.current = queueTask;
+  });
   useImperativeHandle(
     ref,
     () => ({
@@ -584,9 +589,9 @@ export function TaskList({
           ]);
         }
       },
-      queueTask,
+      queueTask: (task, front) => queueTaskRef.current(task, front),
     }),
-    [selectionHandle, queueTask],
+    [selectionHandle],
   );
 
   // Details change row heights, so keep the active task on screen.
