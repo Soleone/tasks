@@ -320,6 +320,7 @@ export default function App({
     historyBusy,
     newTaskId,
     savedTask,
+    departingTask,
     exitingTaskIds,
     landingTaskIds,
     pickerRemoveBlocker,
@@ -986,6 +987,7 @@ export default function App({
           categories={categories}
           newTaskId={newTaskId}
           savedTask={savedTask}
+          departingTask={departingTask}
           exitingTaskIds={exitingTaskIds}
           contextTasks={contextTasks}
           contextOrder={contextOrder}

@@ -37,6 +37,9 @@ const STATUS_EXIT_LINGER_MS = 250;
 /** The saved row's sweep or slam and its check or plus (task-save-* in styles.css). */
 const SAVE_FEEDBACK_MS = 1100;
 
+/** A new task saved outside the view shows its category, then slides out (task-list-depart). */
+const DEPART_MS = 900;
+
 const reduceMotion = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function statusExitLinger(): number {
@@ -103,6 +106,7 @@ export function useWorkspaceActions({
   const historyBusyRef = useRef(false);
   const [newTaskId, setNewTaskId] = useState<string | null>(null);
   const [savedTask, setSavedTask] = useState<SavedTask | null>(null);
+  const [departingTask, setDepartingTask] = useState<TaskView | null>(null);
   const { exitingTaskIds, exitRows, stopRowExits } = useRowExits(
     updateVisibleTasks,
     holdRevisionCheck,
@@ -438,6 +442,12 @@ export function useWorkspaceActions({
     return () => window.clearTimeout(timeout);
   }, [savedTask]);
 
+  useEffect(() => {
+    if (departingTask === null) return;
+    const timeout = window.setTimeout(() => setDepartingTask(null), DEPART_MS);
+    return () => window.clearTimeout(timeout);
+  }, [departingTask]);
+
   function showOptimisticCreate(draft: TaskCreateDraft): void {
     const literal = parseShorthand(draft.title);
     const now = new Date().toISOString();
@@ -480,6 +490,8 @@ export function useWorkspaceActions({
       if (visible) {
         updateVisibleTasks([task]);
         setNewTaskId(task.id);
+      } else {
+        setDepartingTask(task);
       }
     } else if (visible) {
       setTasks((previous) =>
@@ -603,6 +615,7 @@ export function useWorkspaceActions({
     historyBusy,
     newTaskId,
     savedTask,
+    departingTask,
     exitingTaskIds,
     landingTaskIds,
     pickerRemoveBlocker,

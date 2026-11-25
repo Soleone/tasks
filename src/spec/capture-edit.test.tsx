@@ -177,6 +177,21 @@ describe("opening and closing", () => {
     await waitFor(() => expect(saved("Fresh")).toBeNull(), { timeout: 2000 });
   });
 
+  test("capture.saved-elsewhere: a new task outside the filter shows, then leaves", async () => {
+    await workspace.create("Work item", { category: "work" });
+    const { user } = await workspace.render();
+    await user.keyboard("{ArrowRight}");
+    await expectRows(["Work item"]);
+    await capture(user, "Dentist @home {Enter}");
+    await waitFor(() =>
+      expect(document.querySelector("[data-departing-task]")?.textContent).toContain("Dentist"),
+    );
+    await waitFor(() => expect(document.querySelector("[data-departing-task]")).toBeNull(), {
+      timeout: 2000,
+    });
+    await expectRows(["Work item"]);
+  });
+
   test("edit.cancel: Escape cancels from the title and from the description", async () => {
     const task = await workspace.create("Keep me");
     const { user } = await workspace.render();

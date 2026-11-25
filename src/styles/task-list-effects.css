@@ -21,6 +21,31 @@
   }
 }
 
+/* A new task saved outside the view (`capture.saved-elsewhere`) holds while its category pulses,
+ * then slides out left, the other way from rows a status change sends out. DEPART_MS covers it. */
+[data-departing-task] {
+  pointer-events: none;
+  animation: task-list-depart 300ms cubic-bezier(0.4, 0, 1, 1) 600ms both;
+}
+
+[data-departing-task] [data-category] {
+  color: var(--foreground);
+  animation: task-category-pulse 420ms cubic-bezier(0.2, 0.8, 0.2, 1) 80ms both;
+}
+
+@keyframes task-list-depart {
+  to {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes task-category-pulse {
+  40% {
+    transform: scale(1.15);
+  }
+}
+
 /* Canceling strikes the title through, drawn left to right while the row lingers before its exit.
  * A background line rather than text-decoration, so it can grow; slice carries it across wraps. */
 [role="option"]:has([data-status-enter="canceled"]) [data-slot="item-title"] {

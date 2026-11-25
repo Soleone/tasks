@@ -197,10 +197,13 @@ export function OptimisticTaskOption({
   task,
   showDetails,
   hiddenCategorySlug,
+  departing = false,
 }: {
   task: TaskView;
   showDetails: boolean;
   hiddenCategorySlug: string | null;
+  /** Saved, but outside the view: it shows where it went, then slides out. */
+  departing?: boolean;
 }): ReactElement {
   return (
     <TaskItem
@@ -208,9 +211,10 @@ export function OptimisticTaskOption({
       role="option"
       aria-selected={false}
       aria-disabled="true"
-      aria-busy="true"
+      aria-busy={!departing}
       tabIndex={-1}
       data-optimistic-task
+      data-departing-task={departing || undefined}
       size="sm"
     >
       <TaskRow

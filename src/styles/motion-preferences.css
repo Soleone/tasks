@@ -21,6 +21,8 @@
   [data-saved-task] [data-task-disclosure],
   [data-saved-task] [data-slot="item-actions"],
   [data-exiting-task="true"],
+  [data-departing-task],
+  [data-departing-task] [data-category],
   [role="option"]:has([data-status-enter="canceled"]) [data-slot="item-title"],
   .task-completion-icon,
   .task-completion-icon path,

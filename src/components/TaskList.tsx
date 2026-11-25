@@ -143,6 +143,8 @@ type TaskListProps = {
   newTaskId?: string | null;
   /** The task this client just saved from the editor, while its row plays `edit.saved` or `capture.saved`. */
   savedTask?: SavedTask | null;
+  /** A new task this client just saved outside the view, while it plays `capture.saved-elsewhere`. */
+  departingTask?: TaskView | null;
   exitingTaskIds: ReadonlySet<string>;
   contextTasks: TaskView[];
   contextOrder: ReadonlyMap<string, number>;
@@ -265,6 +267,7 @@ export function TaskList({
   categories,
   newTaskId,
   savedTask,
+  departingTask,
   exitingTaskIds,
   contextTasks,
   contextOrder,
@@ -2012,6 +2015,15 @@ export function TaskList({
               task={optimisticTask}
               showDetails={showDetails}
               hiddenCategorySlug={categoryFilter?.slug ?? null}
+            />
+          ) : null}
+          {departingTask ? (
+            <OptimisticTaskOption
+              key={departingTask.id}
+              task={departingTask}
+              showDetails={showDetails}
+              hiddenCategorySlug={categoryFilter?.slug ?? null}
+              departing
             />
           ) : null}
           {rootRowRuns(visibleRows).map((run) => (
