@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.1](https://github.com/Soleone/tasks/compare/v0.8.0...v0.8.1) (2026-11-25)
+
+### Features
+
+* show a new task saved outside the filter before it slides away ([0ee10c7](https://github.com/Soleone/tasks/commit/0ee10c73383646b4b1716b016f8d6dd947d7845c))
+
 ## [0.8.0](https://github.com/Soleone/tasks/compare/v0.7.8...v0.8.0) (2026-11-25)
 
 ### Features
