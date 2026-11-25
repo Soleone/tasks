@@ -57,7 +57,7 @@ import {
   type TaskListHandle,
   type TaskListPlace,
 } from "@/components/TaskList";
-import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/TaskListToolbar";
+import { TOOLBAR_FOLD_GROUPS, type ToolbarFoldGroup } from "@/components/ToolbarFoldableGroup";
 import { showTaskToast, TaskToaster } from "@/components/TaskToaster";
 import { takeCapture, type Capture } from "@/platform/mobileImages";
 import { ToggleButton } from "@/components/variants/button";

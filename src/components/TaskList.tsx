@@ -47,7 +47,8 @@ import {
   type StatusCommand,
   type StatusTransition,
 } from "./taskStatusCycle";
-import { TaskListToolbar, type ToolbarFoldGroup } from "./TaskListToolbar";
+import { TaskListToolbar } from "./TaskListToolbar";
+import type { ToolbarFoldGroup } from "./ToolbarFoldableGroup";
 import type { TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { ComposerState, TaskCreateDraft } from "@/components/TaskComposer";
 import {

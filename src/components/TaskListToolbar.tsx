@@ -1,27 +1,12 @@
-import {
-  Fragment,
-  useEffect,
-  useEffectEvent,
-  useId,
-  useRef,
-  useState,
-  type ComponentProps,
-  type MouseEvent,
-  type ReactElement,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import type { ComponentProps, ReactElement, ReactNode, RefObject } from "react";
 import {
   ArrowDown,
-  ArrowDownUp,
   ArrowUp,
-  ChevronDown,
   Circle,
   Flag,
   Folder,
   Funnel,
   ListChevronsUpDown,
-  type LucideIcon,
   Plus,
   Pointer,
   Search,
@@ -32,43 +17,25 @@ import type { ClassificationToken } from "@/backend/taskText";
 import type { TaskPriority, TaskStatus } from "@/backend/taskModel";
 import type { ClassificationOption } from "./taskView";
 import {
-  taskStatusMeta,
   STATUS_PRESET_LABELS,
+  statusesLabel,
   type SortDirection,
   type SortField,
   type StatusPreset,
 } from "./taskFilters";
-import { CategoryFact } from "./TaskRow";
-import { useFilterTuck } from "./useFilterTuck";
-import { lensFilter, lensPhrase, nextDoneWindow, type GoalLens, type ListLens } from "./listLens";
-import { DoneLensGoals, goalLens, WeekDots } from "./GoalRings";
-import { Hinted } from "./Hinted";
-import { BindingKbd } from "@/components/variants/kbd";
+import { lensFilter, type GoalLens, type ListLens } from "./listLens";
 import type { WeekDay } from "@/useHeaderCounts";
 import type { GoalsToday } from "@/goals";
 import { TaskListModeHelp, type TaskListMode as ToolbarMode } from "./TaskListModeHelp";
 import type { TaskMoveDirection } from "./taskReordering";
 import { SortMenu } from "./SortMenu";
 import { TaskActions } from "./TaskActions";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbSeparator } from "./ui/breadcrumb";
-import { Button } from "./ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { Popover, PopoverTrigger } from "./ui/popover";
-import { Tooltip, TooltipContent } from "@/components/variants/tooltip";
-import { TooltipTrigger } from "./ui/tooltip";
-import { preventFocusSteal } from "@/navigation";
+import { FoldableGroup, type ToolbarFoldGroup } from "./ToolbarFoldableGroup";
+import { ReorderMenu } from "./ReorderMenu";
+import { TaskListFilterSummary } from "./TaskListFilterSummary";
+import { useToolbarFeedback } from "./useToolbarFeedback";
 import { ButtonRow, ToolbarGroup } from "@/components/variants/button-group";
-import {
-  ToolbarCommand,
-  ToolbarGlyph,
-  ToolbarToggle,
-  ToolbarTooltip,
-} from "@/components/variants/toolbar";
-import { CompactPopoverContent } from "@/components/variants/popover";
-import { CompactBreadcrumbList } from "@/components/variants/breadcrumb";
-
-export const TOOLBAR_FOLD_GROUPS = ["filter", "actions"] as const;
-export type ToolbarFoldGroup = (typeof TOOLBAR_FOLD_GROUPS)[number];
+import { ToolbarCommand, ToolbarToggle, ToolbarTooltip } from "@/components/variants/toolbar";
 
 // What each sort shows first, descending then ascending.
 const ORDER_LABELS: Record<Exclude<SortField, "manual">, [string, string]> = {
@@ -79,115 +46,6 @@ const ORDER_LABELS: Record<Exclude<SortField, "manual">, [string, string]> = {
   due: ["Soonest due first", "Latest due first"],
   closed: ["Recently done first", "Earliest done first"],
 };
-
-const REORDER_ACTIONS: { direction: TaskMoveDirection; label: string; icon: ReactNode }[] = [
-  { direction: "up", label: "Move up", icon: <ArrowUp aria-hidden="true" /> },
-  { direction: "down", label: "Move down", icon: <ArrowDown aria-hidden="true" /> },
-  {
-    direction: "start",
-    label: "Move to beginning",
-    icon: <ChevronDown aria-hidden="true" className="rotate-180" />,
-  },
-  { direction: "end", label: "Move to end", icon: <ChevronDown aria-hidden="true" /> },
-];
-
-type FilterSummaryFilter = "status" | "category" | "priority" | "tags" | "search" | "unblocked";
-type FilterSummaryPart = {
-  filter: Exclude<FilterSummaryFilter, "status" | "category">;
-  value: string;
-  label: string;
-  /** The tooltip, when the label repeats a value shown in full on screen. */
-  hint?: string;
-  onClear: () => void;
-};
-
-function FilterSummaryAction({
-  filter,
-  label,
-  hint = label,
-  onClear,
-  className,
-  children,
-}: {
-  filter: FilterSummaryFilter;
-  label: string;
-  hint?: string;
-  onClear: (event: MouseEvent<HTMLButtonElement>) => void;
-  className?: string;
-  children: ReactNode;
-}): ReactElement {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            type="button"
-            tabIndex={-1}
-            data-filter-remove={filter}
-            aria-label={label}
-            onMouseDown={preventFocusSteal}
-            onClick={onClear}
-            className={`rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-ring ${className ?? ""}`}
-          />
-        }
-      >
-        {children}
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{hint}</TooltipContent>
-    </Tooltip>
-  );
-}
-
-// A group is its glyph plus its buttons; folded, only the glyph remains. The panel stays
-// mounted so the F mode can focus a folded group's toolbar.
-function FoldableGroup({
-  group,
-  icon,
-  label,
-  open,
-  active,
-  onFoldChange,
-  tooltip,
-  children,
-}: {
-  group: ToolbarFoldGroup;
-  icon: LucideIcon;
-  label: string;
-  open: boolean;
-  active: boolean;
-  onFoldChange: (group: ToolbarFoldGroup, folded: boolean) => void;
-  tooltip: ComponentProps<typeof Tooltip>;
-  children: ReactNode;
-}): ReactElement {
-  return (
-    <Collapsible
-      className="flex"
-      open={open}
-      onOpenChange={(nextOpen) => onFoldChange(group, !nextOpen)}
-    >
-      <ToolbarTooltip
-        tooltip={tooltip}
-        hint={`${open ? "Hide" : "Show"} ${label.toLowerCase()}`}
-        render={
-          <CollapsibleTrigger
-            render={
-              <ToolbarGlyph
-                icon={icon}
-                open={open}
-                active={!open && active}
-                aria-label={label}
-                data-toolbar-glyph={group}
-              />
-            }
-          />
-        }
-      />
-      <CollapsibleContent keepMounted className="flex">
-        {children}
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
 
 // Keep refs and actions list-owned so mouse controls and shortcuts share one path.
 type TaskListToolbarProps = {
@@ -300,59 +158,10 @@ export function TaskListToolbar({
   clearTagFilter,
   clearSearch,
 }: TaskListToolbarProps): ReactElement {
-  const tooltipId = useId();
-  const touchTarget = useRef<HTMLButtonElement | null>(null);
-  const summaryList = useRef<HTMLOListElement | null>(null);
-  useFilterTuck(summaryList);
-  const [touchFeedback, setTouchFeedback] = useState<{ key: string } | null>(null);
-  const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
-  const dismissFeedback = useEffectEvent((event: PointerEvent | KeyboardEvent) => {
-    touchTarget.current =
-      "pointerType" in event && event.pointerType === "touch" && event.target instanceof Element
-        ? event.target.closest<HTMLButtonElement>("button[data-toolbar-feedback]")
-        : null;
-    setTouchFeedback(null);
-    setHoveredTooltip(null);
-    setUnblockedFeedbackOpen(false);
-  });
-  useEffect(() => {
-    document.addEventListener("pointerdown", dismissFeedback, true);
-    document.addEventListener("keydown", dismissFeedback, true);
-    return () => {
-      document.removeEventListener("pointerdown", dismissFeedback, true);
-      document.removeEventListener("keydown", dismissFeedback, true);
-    };
-  }, []);
-  useEffect(() => {
-    if (!touchFeedback) return;
-    const timeout = window.setTimeout(() => setTouchFeedback(null), 1500);
-    return () => window.clearTimeout(timeout);
-  }, [touchFeedback]);
-
-  function feedbackTooltip(key: string): ComponentProps<typeof Tooltip> {
-    return {
-      triggerId: `${tooltipId}-${key}`,
-      open: touchFeedback
-        ? touchFeedback.key === key
-        : hoveredTooltip !== null
-          ? hoveredTooltip === key
-          : key === "unblocked" && unblockedFeedbackOpen,
-      onOpenChange: (open, details) => {
-        // Touch generates press and hover-end events after the click. Neither should
-        // dismiss the feedback that click just opened.
-        if (
-          touchFeedback?.key === key &&
-          (details.reason === "trigger-press" || details.reason === "trigger-hover")
-        ) {
-          details.cancel();
-          return;
-        }
-        setHoveredTooltip((previous) => (open ? key : previous === key ? null : previous));
-        if (open || key === "unblocked") setUnblockedFeedbackOpen(false);
-        if (open || touchFeedback?.key === key) setTouchFeedback(null);
-      },
-    };
-  }
+  const { feedbackTooltip, onClickCapture } = useToolbarFeedback(
+    unblockedFeedbackOpen,
+    setUnblockedFeedbackOpen,
+  );
 
   // A lens replaces the status filter, so the chip names the statuses it shows.
   const statusActive = lens !== null || exactStatus !== null || statusPreset !== "active";
@@ -368,71 +177,7 @@ export function TaskListToolbar({
   // Descending is the default direction. The toggle is highlighted only
   // after reversing that default to ascending order.
   const reverseActive = sortField !== "manual" && sortDirection === "asc";
-  const summaryStatus = statusLabel.toLowerCase();
-  const summaryTags =
-    tagFilter.length > 2
-      ? `#${tagFilter[0].label} +${tagFilter.length - 1} tags`
-      : tagFilter.length > 0
-        ? tagFilter.map((tag) => `#${tag.label}`).join(" ")
-        : null;
-  const lensGoals = lens?.kind === "done" && lens.window === "day" ? goals : null;
-  const narrowedTo = lens?.kind === "done" ? lens.goal : undefined;
-  // Only a goal has a target: a total against all targets would look met while a goal is open.
-  const lensTarget =
-    lensGoals?.goals.find(
-      (goal) => JSON.stringify(goalLens(goal, lensGoals)) === JSON.stringify(narrowedTo),
-    )?.target ?? null;
-  const summaryTarget = lensTarget !== null ? `/${lensTarget}` : "";
-  const summaryPhrase = lens
-    ? lensPhrase(lens)
-    : `${summaryStatus} ${summaryTaskCount === 1 ? "task" : "tasks"}`;
-  // The number stands alone so a lens count can fly into it (useLensFlip).
-  const summaryText = (
-    <>
-      <span data-summary-count>{summaryTaskCount}</span>
-      {summaryTarget && <span className="opacity-55">{summaryTarget}</span>} {summaryPhrase}
-    </>
-  );
   const statusIsDefault = statusPreset === "active" && exactStatus === null;
-  const clearTags = `Clear tag filters: ${tagFilter.map((tag) => `#${tag.label}`).join(" ")}`;
-  const summarySuffixParts: FilterSummaryPart[] = [
-    priorityFilter !== null
-      ? {
-          filter: "priority",
-          value: priorityLabel,
-          label: `Clear priority filter: ${priorityLabel}`,
-          hint: "Clear priority filter",
-          onClear: clearPriorityFilter,
-        }
-      : null,
-    summaryTags !== null
-      ? {
-          filter: "tags",
-          value: summaryTags,
-          label: clearTags,
-          // "+N tags" hides names, so the tooltip spells them out.
-          hint: tagFilter.length > 2 ? clearTags : "Clear tag filters",
-          onClear: clearTagFilter,
-        }
-      : null,
-    searchActive
-      ? {
-          filter: "search",
-          value: `“${searchQuery.trim()}”`,
-          label: `Clear search filter: ${searchQuery.trim()}`,
-          hint: "Clear search",
-          onClear: clearSearch,
-        }
-      : null,
-    showUnblocked
-      ? {
-          filter: "unblocked",
-          value: "unblocked",
-          label: "Clear unblocked filter",
-          onClear: toggleUnblockedFilter,
-        }
-      : null,
-  ].filter((part): part is FilterSummaryPart => part !== null);
 
   const groupOpen = (group: ToolbarFoldGroup): boolean =>
     !foldedGroups.includes(group) || toolbarMode === group;
@@ -441,16 +186,7 @@ export function TaskListToolbar({
     sortDirection === "desc" ? [descLabel, ascLabel] : [ascLabel, descLabel];
 
   return (
-    <div
-      className="flex shrink-0 flex-col gap-4"
-      onClickCapture={(event) => {
-        const button = touchTarget.current;
-        touchTarget.current = null;
-        if (!button || button.disabled || !button.contains(event.target as Node)) return;
-        setHoveredTooltip(null);
-        setTouchFeedback({ key: button.dataset.toolbarFeedback! });
-      }}
-    >
+    <div className="flex shrink-0 flex-col gap-4" onClickCapture={onClickCapture}>
       {/* New task holds the first column; groups wrap whole onto rows that start beside it. */}
       <div className="flex items-start">
         <ToolbarTooltip
@@ -474,7 +210,14 @@ export function TaskListToolbar({
             icon={Funnel}
             label="Filters"
             open={groupOpen("filter")}
-            active={!statusIsDefault || categoryFilter !== null || summarySuffixParts.length > 0}
+            active={
+              !statusIsDefault ||
+              categoryFilter !== null ||
+              priorityFilter !== null ||
+              tagFilter.length > 0 ||
+              searchActive ||
+              showUnblocked
+            }
             onFoldChange={setGroupFolded}
             tooltip={feedbackTooltip("fold-filter")}
           >
@@ -709,179 +452,42 @@ export function TaskListToolbar({
               >
                 <ListChevronsUpDown aria-hidden="true" />
               </ToolbarTooltip>
-              <Popover open={moveControlsOpen} onOpenChange={setMoveControlsOpen}>
-                <ToolbarTooltip
-                  tooltip={feedbackTooltip("move")}
-                  hint={moveControlsOpen ? "Hide reorder controls" : "Reorder"}
-                  render={
-                    <PopoverTrigger
-                      render={
-                        <ToolbarCommand
-                          aria-label="Reorder"
-                          data-move-controls-toggle
-                          onMouseDown={preventFocusSteal}
-                        />
-                      }
-                    />
-                  }
-                >
-                  <ArrowDownUp aria-hidden="true" />
-                </ToolbarTooltip>
-                <CompactPopoverContent
-                  data-move-controls
-                  side="bottom"
-                  align="end"
-                  sideOffset={8}
-                  initialFocus={false}
-                  finalFocus={false}
-                >
-                  <p className="sr-only">Move {moveSubjectLabel} in manual order.</p>
-                  <div
-                    role="toolbar"
-                    aria-label={
-                      reorderAvailabilityReason
-                        ? `Move ${moveSubjectLabel}. ${reorderAvailabilityReason}`
-                        : `Move ${moveSubjectLabel}`
-                    }
-                    aria-controls="task-list"
-                    className="flex items-center gap-1"
-                  >
-                    {REORDER_ACTIONS.map(({ direction, label, icon }) => (
-                      <Tooltip key={direction}>
-                        <TooltipTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              tabIndex={-1}
-                              aria-label={label}
-                              aria-disabled={reorderAvailabilityReason !== null || undefined}
-                              data-reorder-action={direction}
-                              onMouseDown={preventFocusSteal}
-                              onClick={() => void reorderSelection(direction)}
-                            />
-                          }
-                        >
-                          {icon}
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={8}>
-                          {reorderAvailabilityReason ?? label}
-                        </TooltipContent>
-                      </Tooltip>
-                    ))}
-                  </div>
-                </CompactPopoverContent>
-              </Popover>
+              <ReorderMenu
+                open={moveControlsOpen}
+                onOpenChange={setMoveControlsOpen}
+                tooltip={feedbackTooltip("move")}
+                subjectLabel={moveSubjectLabel}
+                availabilityReason={reorderAvailabilityReason}
+                reorderSelection={reorderSelection}
+              />
               <TaskActions {...taskActions} tooltipFor={feedbackTooltip} />
             </ButtonRow>
           </FoldableGroup>
         </div>
       </div>
       {searchInput}
-      {/* The done lens's week sits beside the summary, or under it on a phone (`goals.report-open`). */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <Breadcrumb
-          data-filter-summary="true"
-          aria-live="polite"
-          aria-atomic="true"
-          className="min-w-0 overflow-hidden"
-        >
-          <CompactBreadcrumbList ref={summaryList}>
-            <BreadcrumbItem className="shrink-0">
-              {statusIsDefault ? (
-                <span className="font-medium">{summaryText}</span>
-              ) : (
-                <FilterSummaryAction
-                  filter="status"
-                  label={
-                    lens?.kind === "done"
-                      ? `Show tasks ${lensPhrase({ kind: "done", window: nextDoneWindow(lens.window) })}`
-                      : "Reset status filter to Active"
-                  }
-                  onClear={
-                    lens?.kind === "done"
-                      ? (event) => widenDoneLens(event.shiftKey)
-                      : clearStatusFilter
-                  }
-                  className="font-medium text-foreground"
-                >
-                  {summaryText}
-                </FilterSummaryAction>
-              )}
-            </BreadcrumbItem>
-            {lensGoals ? (
-              <BreadcrumbItem className="min-w-0">
-                <DoneLensGoals today={lensGoals} goal={narrowedTo} onGoal={onGoalLens} />
-              </BreadcrumbItem>
-            ) : null}
-            {categoryFilter ? (
-              <>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem className="shrink-0">
-                  <FilterSummaryAction
-                    filter="category"
-                    label={`Clear category filter: ${categoryFilter.label}`}
-                    hint="Clear category filter"
-                    onClear={clearCategoryFilter}
-                    className="group/fact shrink-0"
-                  >
-                    <span data-filter-category="true" className="flex">
-                      <CategoryFact label={categoryFilter.label} />
-                    </span>
-                  </FilterSummaryAction>
-                </BreadcrumbItem>
-              </>
-            ) : null}
-            {summarySuffixParts.map((part) => (
-              <Fragment key={part.filter}>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem className="min-w-0">
-                  <FilterSummaryAction
-                    filter={part.filter}
-                    label={part.label}
-                    hint={part.hint}
-                    onClear={part.onClear}
-                    className="min-w-0 truncate text-left text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    {part.value}
-                  </FilterSummaryAction>
-                </BreadcrumbItem>
-              </Fragment>
-            ))}
-          </CompactBreadcrumbList>
-        </Breadcrumb>
-        {lensGoals && week ? (
-          <Hinted
-            hint={
-              <>
-                Goal report <BindingKbd id="goals.report" />
-              </>
-            }
-            render={
-              <button
-                type="button"
-                tabIndex={-1}
-                data-week-strip
-                onMouseDown={preventFocusSteal}
-                onClick={onOpenGoalReport}
-                className="flex shrink-0 items-center gap-2 rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground max-sm:-ml-2"
-              />
-            }
-          >
-            This week
-            <WeekDots week={week} />
-          </Hinted>
-        ) : null}
-      </div>
+      <TaskListFilterSummary
+        statusLabel={statusLabel}
+        statusIsDefault={statusIsDefault}
+        categoryFilter={categoryFilter}
+        priorityFilter={priorityFilter}
+        tagFilter={tagFilter}
+        searchQuery={searchQuery}
+        showUnblocked={showUnblocked}
+        toggleUnblockedFilter={toggleUnblockedFilter}
+        summaryTaskCount={summaryTaskCount}
+        lens={lens}
+        widenDoneLens={widenDoneLens}
+        goals={goals}
+        week={week}
+        onOpenGoalReport={onOpenGoalReport}
+        onGoalLens={onGoalLens}
+        clearStatusFilter={clearStatusFilter}
+        clearCategoryFilter={clearCategoryFilter}
+        clearPriorityFilter={clearPriorityFilter}
+        clearTagFilter={clearTagFilter}
+        clearSearch={clearSearch}
+      />
     </div>
   );
-}
-
-/** "Done", or "Open, in progress, paused". */
-function statusesLabel(statuses: TaskStatus[]): string {
-  const label = statuses
-    .map((status) => taskStatusMeta[status].label)
-    .join(", ")
-    .toLowerCase();
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
