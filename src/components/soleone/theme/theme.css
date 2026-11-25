@@ -40,6 +40,7 @@
   --destructive: var(--om-red);
   --destructive-foreground: var(--om-on-red);
   --success: var(--om-green);
+  --warning: var(--om-yellow);
   --border: var(--om-muted);
   --input: var(--om-muted);
   --ring: var(--om-accent);

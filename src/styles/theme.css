@@ -2,7 +2,6 @@
 
 /* Task-specific roles extend the shared semantic theme tokens. */
 :root {
-  --warning: var(--om-yellow);
   --classification-category: var(--om-green);
 }
 
