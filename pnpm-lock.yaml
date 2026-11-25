@@ -87,8 +87,8 @@ importers:
         specifier: ^4.23.0
         version: 4.23.0
       sql.js:
-        specifier: ^1.16.0
-        version: 1.16.0
+        specifier: ^1.17.0
+        version: 1.17.0
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
@@ -4225,8 +4225,8 @@ packages:
     resolution: {integrity: sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==}
     engines: {node: '>=0.10.0'}
 
-  sql.js@1.16.0:
-    resolution: {integrity: sha512-q/JOZuJfmVh8Zf8Eo+cMJvtxAWeWBqTfJ6AQYGXZmcaLGHMwhA2niH3fQYHrBtPeOss1ttzHec07K5+rHaMRMw==}
+  sql.js@1.17.0:
+    resolution: {integrity: sha512-HNdo5+2eSTEm7iLcfXUd2mjZX3Oe+5mJ0uDgIpirS7gSLHhZIw9kWDWxNcDVeFGEIBxJlkgo525g0CZJoH8GgA==}
 
   std-env@4.3.0:
     resolution: {integrity: sha512-OtU/EgQ1kIm5KwqQpBC6ZEMXrZRui11w8zgfTWp8cdO9B8OaPsbA8bTHO2P+HNo1VlUTGMVBwPhydu6poeXiag==}
@@ -8100,7 +8100,7 @@ snapshots:
 
   source-map@0.6.1: {}
 
-  sql.js@1.16.0: {}
+  sql.js@1.17.0: {}
 
   std-env@4.3.0: {}
 
