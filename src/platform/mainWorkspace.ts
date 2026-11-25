@@ -52,11 +52,13 @@ export type UnresolvedTaskRequest = {
   preserveForReconciliation: () => void;
 };
 
+type WriteState =
+  | { phase: "idle" | "writing" | "reconciliation" }
+  | { phase: "unresolved" | "retrying"; request: UnresolvedTaskRequest };
+
 /** One explicitly selected workspace for the established UI. */
 export class MainWorkspace {
-  private writing = false;
-  private reconciliationRequired = false;
-  private unresolved: UnresolvedTaskRequest | null = null;
+  private writeState: WriteState = { phase: "idle" };
   private listeners = new Set<() => void>();
   private history: Promise<UndoHistory> | null = null;
 
@@ -81,11 +83,13 @@ export class MainWorkspace {
       this.listeners.delete(listener);
     };
   };
-  getUnresolved = (): UnresolvedTaskRequest | null => this.unresolved;
-  hasWriteInProgress = (): boolean => this.writing;
+  getUnresolved = (): UnresolvedTaskRequest | null =>
+    "request" in this.writeState ? this.writeState.request : null;
+  hasWriteInProgress = (): boolean =>
+    this.writeState.phase !== "idle" && this.writeState.phase !== "reconciliation";
 
   assertCanClose(): void {
-    if (this.writing || this.unresolved || this.reconciliationRequired)
+    if (this.writeState.phase !== "idle")
       throw new EditorError(
         "WRITE_IN_PROGRESS",
         "Finish or reconcile the current task change first.",
@@ -265,9 +269,12 @@ export class MainWorkspace {
     return baseline;
   }
 
-  private publishUnresolved(request: UnresolvedTaskRequest | null): void {
-    this.unresolved = request;
-    for (const listener of this.listeners) listener();
+  private transitionWrite(state: WriteState): void {
+    const previous = this.getUnresolved();
+    this.writeState = state;
+    if (this.getUnresolved() !== previous) {
+      for (const listener of this.listeners) listener();
+    }
   }
 
   private async write(prepare: () => Promise<PreparedEdit>) {
@@ -278,48 +285,48 @@ export class MainWorkspace {
   private async run<R extends EditResult | OrderResult | UndoResult>(
     prepare: () => Promise<PreparedEdit<R>>,
   ): Promise<R> {
-    if (this.reconciliationRequired)
+    if (this.writeState.phase === "reconciliation")
       throw new EditorError(
         "MANUAL_RECONCILIATION",
         "Writes are paused until you reconcile the preserved request and reopen this workspace.",
       );
-    if (this.writing)
+    if (this.hasWriteInProgress())
       throw new EditorError(
         "WRITE_IN_PROGRESS",
         "Finish the current task change before starting another.",
       );
-    this.writing = true;
+    this.transitionWrite({ phase: "writing" });
     try {
       const prepared = await prepare();
       return await new Promise<R>((resolve, reject) => {
-        let inFlight = false;
-        let uncertainAttempt = false;
-        const retry = async (): Promise<void> => {
-          if (inFlight) return;
-          inFlight = true;
+        const execute = async (attempt: "initial" | "retry"): Promise<void> => {
           try {
             const result = await prepared.execute();
-            this.publishUnresolved(null);
+            this.transitionWrite({ phase: "writing" });
             resolve(result);
           } catch (error) {
+            // A later refusal cannot prove that an earlier attempt had no effect.
             if (
-              !uncertainAttempt &&
+              attempt === "initial" &&
               error instanceof AnsweredRefusal &&
               PRE_EFFECT_REFUSALS.has(error.code)
             ) {
-              this.publishUnresolved(null);
               reject(error);
               return;
             }
-            // A later refusal cannot prove that an earlier attempt had no effect.
-            uncertainAttempt = true;
-            this.publishUnresolved({
+            const request: UnresolvedTaskRequest = {
               prepared,
               error: error instanceof Error ? error.message : String(error),
-              retry,
+              retry: async () => {
+                if (this.writeState.phase !== "unresolved" || this.writeState.request !== request)
+                  return;
+                this.transitionWrite({ phase: "retrying", request });
+                await execute("retry");
+              },
               preserveForReconciliation: () => {
-                this.reconciliationRequired = true;
-                this.publishUnresolved(null);
+                if (this.writeState.phase !== "unresolved" || this.writeState.request !== request)
+                  return;
+                this.transitionWrite({ phase: "reconciliation" });
                 reject(
                   new EditorError(
                     "MANUAL_RECONCILIATION",
@@ -327,15 +334,14 @@ export class MainWorkspace {
                   ),
                 );
               },
-            });
-          } finally {
-            inFlight = false;
+            };
+            this.transitionWrite({ phase: "unresolved", request });
           }
         };
-        void retry();
+        void execute("initial");
       });
     } finally {
-      this.writing = false;
+      if (this.hasWriteInProgress()) this.transitionWrite({ phase: "idle" });
     }
   }
 }

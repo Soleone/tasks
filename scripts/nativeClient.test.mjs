@@ -479,12 +479,20 @@ test(
     const saving = workspace.save(draft("Possibly published"), "original-key");
     const retained = await unresolved,
       before = state.requests.length;
+    const retrying = retained.retry();
+    // Recovery actions captured by the dialog cannot compete with the active retry.
+    retained.preserveForReconciliation();
     await retained.retry();
+    await retrying;
     assert.equal((await saving).operationId, "retained-create");
+
+    retained.preserveForReconciliation();
+    await retained.retry();
     assert.equal(state.requests.length, before + 1);
     assert.deepEqual(state.requests.at(-1), JSON.parse(retained.prepared.originalRequest));
     assert.equal(workspace.getUnresolved(), null);
     assert.equal(workspace.hasWriteInProgress(), false);
+    workspace.assertCanClose();
   },
 );
 
