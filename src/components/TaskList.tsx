@@ -919,7 +919,7 @@ export function TaskList({
       onAnnounce("The selected task changed during refresh. No move was made.");
       return false;
     }
-    const placement = placementForMove(direction, currentSelected[0], currentSelected, currentRows);
+    const placement = placementForMove(direction, currentSelected, currentRows);
     if (!placement) {
       const boundary = boundaryMessage(direction);
       onAnnounce(switchedToManual ? `Switched to manual order. ${boundary}` : boundary);
@@ -933,7 +933,7 @@ export function TaskList({
         const selected =
           active && selectedRowsForReorder(active, preview, new Set(next.selectedIds));
         if (!selected) break;
-        const target = placementForMove(next.direction, selected[0], selected, preview);
+        const target = placementForMove(next.direction, selected, preview);
         if (target) preview = movedTaskRows(preview, selected, target);
       }
       visibleRowsRef.current = preview;
@@ -1021,7 +1021,7 @@ export function TaskList({
       return;
     }
     if (sortField === "manual") {
-      const placement = placementForMove(direction, active, selected, rows);
+      const placement = placementForMove(direction, selected, rows);
       if (!placement) {
         onAnnounce(boundaryMessage(direction));
         return;

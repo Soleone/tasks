@@ -30,15 +30,13 @@ export function selectedRowsForReorder(
 
 export function placementForMove(
   direction: TaskMoveDirection,
-  row: VisibleTaskRow,
   selected: readonly VisibleTaskRow[],
   rows: readonly VisibleTaskRow[],
 ): TaskMovePlacement | null {
-  const scope = selectableSiblingRows(row, rows);
+  const scope = selectableSiblingRows(selected[0], rows);
   const selectedIds = new Set(selected.map((candidate) => candidate.task.id));
   const isSelected = (candidate: VisibleTaskRow) => selectedIds.has(candidate.task.id);
   const firstSelected = scope.findIndex(isSelected);
-  if (firstSelected < 0) return null;
   const lastSelected = scope.length - 1 - [...scope].reverse().findIndex(isSelected);
   if (direction === "start") {
     return firstSelected === 0 ? null : { beforeId: scope[0].task.id };
